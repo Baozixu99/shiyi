@@ -78,17 +78,17 @@ jobs:
           }
           [System.IO.File]::WriteAllText((Join-Path $stage 'exec-config.json'), ($cfg | ConvertTo-Json -Depth 10))
 
-          $out = & $bin deployments create --site-id 37ljkvjqby7ib89amxv --title "CI 发布 $env:GITHUB_SHA" --type function-web --source-dir $stage --execution-config "$stage\exec-config.json" --app-tags 289 2>$null
-          $jsonLine = $out | Where-Object { $_ -like '{"data"*' } | Select-Object -First 1
-          if (-not $jsonLine) { $out | ForEach-Object { Write-Host $_ }; throw "create 无 JSON 响应" }
+          $raw = cmd /c "chcp 65001>nul & $bin deployments create --site-id 37ljkvjqby7ib89amxv --title ""CI 发布 $env:GITHUB_SHA"" --type function-web --source-dir $stage --execution-config $stage\exec-config.json --app-tags 289 2>nul"
+          $jsonLine = $raw | Where-Object { $_ -like '{"data"*' } | Select-Object -First 1
+          if (-not $jsonLine) { $raw | ForEach-Object { Write-Host $_ }; throw "create 无 JSON 响应" }
           $resp = $jsonLine | ConvertFrom-Json
           if (-not $resp.ok) { Write-Host $jsonLine; throw "create 失败: $($resp.error.code) $($resp.error.message)" }
           $depId = $resp.data.deployment_id
           Write-Host "deploying $depId"
 
-          $wout = & $bin deployments wait --deployment-id $depId --timeout-seconds 300 2>$null
-          $wjson = $wout | Where-Object { $_ -like '{"data"*' } | Select-Object -First 1
-          if (-not $wjson) { $wout | ForEach-Object { Write-Host $_ }; throw "wait 无 JSON 响应" }
+          $wraw = cmd /c "chcp 65001>nul & $bin deployments wait --deployment-id $depId --timeout-seconds 300 2>nul"
+          $wjson = $wraw | Where-Object { $_ -like '{"data"*' } | Select-Object -First 1
+          if (-not $wjson) { $wraw | ForEach-Object { Write-Host $_ }; throw "wait 无 JSON 响应" }
           $wresp = $wjson | ConvertFrom-Json
           if (-not $wresp.ok) { Write-Host $wjson; throw "wait 失败" }
           Write-Host ("deployment status=" + $wresp.data.deployment.status + " progress=" + $wresp.data.deployment.progress_percent)
