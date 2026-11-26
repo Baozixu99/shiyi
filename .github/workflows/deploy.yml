@@ -58,7 +58,7 @@ jobs:
           chmod +x ./trae-deploy
           ./trae-deploy --version
 
-          STAGE="$RUNNER_TEMP/shiyi-deploy-$GITHUB_RUN_ID"
+          STAGE="/tmp/shiyi-deploy-$GITHUB_RUN_ID"
           mkdir -p "$STAGE"
           cp -a server/. "$STAGE"/
 
