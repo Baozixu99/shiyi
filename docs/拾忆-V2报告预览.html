@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>拾忆 · V2 分析报告预览（真实模型输出）</title>
+<style>
+  :root{
+    --bg:#141210; --bg-2:#191512; --surface:#1D1915; --surface-2:#262019; --surface-3:#2E2720;
+    --border:#332B21; --border-soft:#282218;
+    --text:#F0E8D9; --text-sub:#A89C86; --text-faint:#6F6555;
+    --accent:#E8AC45; --accent-strong:#F4BE5D; --accent-ink:#211A0C; --accent-dim:rgba(232,172,69,.13);
+    --ai:#8FB8DE; --ai-dim:rgba(143,184,222,.12);
+    --ok:#85C193; --ok-dim:rgba(133,193,147,.13);
+    --warn:#D98E3B; --warn-dim:rgba(217,142,59,.14);
+    --danger:#D9705F; --danger-dim:rgba(217,112,95,.14);
+    --r-md:10px; --r-lg:14px;
+    --sh-sm:0 1px 2px rgba(0,0,0,.32);
+    --font-display:Georgia,"Times New Roman","Songti SC","STSong","SimSun",serif;
+    --font-body:system-ui,-apple-system,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --font-mono:"JetBrains Mono","Fira Code",Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font-body);color:var(--text);line-height:1.7;font-size:15px;min-height:100vh;
+    background:radial-gradient(1100px 520px at 82% -10%,rgba(232,172,69,.075),transparent 60%),
+      radial-gradient(900px 500px at -12% 108%,rgba(143,184,222,.05),transparent 60%),var(--bg);
+    padding:40px 20px 64px}
+  .wrap{max-width:860px;margin:0 auto}
+  .eyebrow{color:var(--accent);font-size:12.5px;letter-spacing:.2em;margin-bottom:8px}
+  h1{font-family:var(--font-display);font-size:28px;margin-bottom:8px}
+  .sub{color:var(--text-faint);font-size:13.5px;margin-bottom:30px}
+  h2{font-family:var(--font-display);font-size:19px;margin:44px 0 6px}
+  .case-tag{font-size:12.5px;color:var(--text-faint);margin-bottom:14px}
+  .note{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--r-lg);padding:16px 18px;margin:10px 0 20px;font-size:13.5px;color:var(--text-sub)}
+  .note b{color:var(--text)}
+  .map{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:16px 0 6px}
+  .map div{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--r-md);padding:10px 8px;text-align:center}
+  .map b{display:block;font-size:12px;margin-bottom:4px}
+  .map span{font-size:11px;color:var(--text-faint)}
+  /* 报告页组件（与原型一致） */
+  .report{max-width:760px}
+  .rep-head h3{font-family:var(--font-display);font-size:22px;line-height:1.5;margin-bottom:6px}
+  .meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;color:var(--text-faint);font-size:12.5px}
+  .meta .ic{width:14px;height:14px}
+  .verdict{border-radius:var(--r-lg);padding:20px 22px;margin-top:18px;border:1px solid}
+  .verdict .badge{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-display);font-size:15px;font-weight:600;letter-spacing:1px;padding:5px 16px;border-radius:999px;margin-bottom:12px}
+  .verdict p{font-size:13.5px;color:var(--text-sub);margin-top:8px}
+  .verdict p b{color:var(--warn)}
+  .verdict.read_parts{background:linear-gradient(140deg,var(--ai-dim),transparent 75%);border-color:rgba(143,184,222,.3)}
+  .verdict.read_parts .badge{background:var(--ai-dim);color:var(--ai)}
+  .verdict.insufficient{background:linear-gradient(140deg,var(--warn-dim),transparent 75%);border-color:rgba(217,142,59,.3)}
+  .verdict.insufficient .badge{background:var(--warn-dim);color:var(--warn)}
+  .summary{font-size:14px;color:var(--text);margin-top:4px}
+  .lab-sec{margin-top:16px}
+  .lab-sec h4{font-size:11.5px;letter-spacing:.14em;color:var(--text-faint);margin-bottom:8px}
+  .lab-li{display:flex;gap:10px;padding:9px 12px;background:var(--surface-2);border-radius:var(--r-md);margin-bottom:8px;font-size:13.5px;line-height:1.65}
+  .lab-li b{color:var(--ai);font-family:var(--font-mono);font-size:12px;flex:none;padding-top:2px;min-width:32px}
+  .lab-li i{font-style:normal;color:var(--text-sub)}
+  .lab-quote{border-left:3px solid var(--accent);padding:7px 12px;margin:0 0 8px;font-size:13.5px;line-height:1.7;color:var(--text-sub);background:var(--surface-2);border-radius:0 var(--r-md) var(--r-md) 0}
+  .lab-quote b{color:var(--ai);font-family:var(--font-mono);font-size:11px;margin-right:8px}
+  .limit{font-size:12.5px;color:var(--text-faint);margin-top:14px;border-top:1px dashed var(--border);padding-top:12px}
+  .limit b{color:var(--warn)}
+  .row-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+  .btn{display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:var(--r-md);font-size:13.5px;font-weight:600}
+  .btn.primary{background:linear-gradient(140deg,var(--accent-strong),var(--accent));color:var(--accent-ink);box-shadow:0 4px 14px rgba(232,172,69,.25)}
+  .btn.ghost{border:1px solid var(--border);color:var(--text-sub)}
+  .chip{display:inline-flex;align-items:center;gap:5px;padding:2px 10px;border-radius:999px;font-size:12px;white-space:nowrap}
+  .chip.ai{background:var(--ai-dim);color:var(--ai)}
+  .chip.mute{background:rgba(111,101,85,.16);color:var(--text-faint)}
+  .v1-strip{display:flex;gap:8px;align-items:flex-start;background:rgba(217,112,95,.07);border:1px dashed rgba(217,112,95,.3);border-radius:var(--r-md);padding:10px 14px;margin-top:16px;font-size:12.5px;color:var(--text-sub)}
+  .v1-strip b{color:var(--danger);flex:none}
+  footer{margin-top:52px;color:var(--text-faint);font-size:12px;border-top:1px solid var(--border-soft);padding-top:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="eyebrow">SHIYI · V2 REPORT PREVIEW</div>
+<h1>切到 V2 后，分析报告长这样</h1>
+<div class="sub">以下三个案例全部为 DeepSeek 真实输出（提示词 A/B 实验室实测数据），按新报告页布局渲染。V2 判定是五级制，不同级别给出不同的后续动作。</div>
+
+<h2>判定级别 → 页面行为</h2>
+<div class="map">
+  <div><b style="color:var(--ok)">通读全文</b><span>生成知识卡片·入复习计划</span></div>
+  <div><b style="color:var(--ai)">只读部分</b><span>按段落生成定向卡片</span></div>
+  <div><b style="color:var(--text-sub)">快速略读</b><span>只留记录·不生成卡片</span></div>
+  <div><b style="color:var(--warn)">建议跳过</b><span>进待确认·建议丢弃</span></div>
+  <div><b style="color:var(--warn)">材料不足</b><span>提示重新抓取全文</span></div>
+</div>
+
+<!-- 案例 A -->
+<h2>案例 A · 微信长文（抓取被截断）</h2>
+<div class="case-tag">输入：mp.weixin.qq.com/s/-hTFhi7…（OpenAI 预训练指标）· coverage=partial · 只取得选段</div>
+<div class="report">
+  <div class="rep-head">
+    <h3>OpenAI预训练指标曝光：27年AI将雪崩式爆发！</h3>
+    <div class="meta"><span class="chip ai">DeepSeek 实时分析</span><span>mp.weixin.qq.com · 刚刚</span><span class="chip mute">coverage: partial</span></div>
+  </div>
+  <div class="verdict insufficient">
+    <div class="badge">⚠ 材料不足 · 不能判断整篇</div>
+    <div class="summary">材料转述 OpenAI 首席科学家关于 log-perplexity 作为 AI 能力指标、0.76/0.68 等临界阈值与 2027 年「雪崩式爆发」的说法，并讨论把困惑度设为行业安全红线的提议及四项局限。</div>
+    <p><b>为什么不能直接告诉你读不读：</b>选段中真正可复用的是对困惑度的概念解释和四项指标局限，能作为风险清单参考；但核心数字、临界阈值和 2027 预测均为媒体转述，未附原始图表、方法或可复现条件，且本次只有选段，不足以判断全文技术价值。</p>
+    <div class="lab-sec"><h4>去读哪段 · 局部可读</h4>
+      <div class="lab-li"><b>b25</b><i>给出困惑度/Perplexity 的基本定义：衡量模型预测下一个词的能力，数值越低表示预测越精准。这是全文少数可直接复用的概念性信息。</i></div>
+      <div class="lab-li"><b>b63</b><i>列出把困惑度当行业指标的第一个挑战：跨实验室数据集和训练配方不同，0.7 不一定可比。可作为评估此类指标的风险点。</i></div>
+      <div class="lab-li"><b>b64</b><i>说明困惑度不能直接反映写代码、写文章等具体任务能力，适合用来判断该指标的适用边界。</i></div>
+      <div class="lab-li"><b>b65</b><i>指出困惑度无法衡量思维链推理等预训练之外的进步，是复用该指标时必须注意的遗漏项。</i></div>
+      <div class="lab-li"><b>b77</b><i>文章给出的 OpenAI 原始长文链接；若目标是找可复用技术细节，应优先查原文而非依赖本文转述。</i></div>
+    </div>
+    <div class="lab-sec"><h4>原文证据</h4>
+      <blockquote class="lab-quote"><b>b25</b>困惑度，衡量就是这个模型预测下一个词的能力。数字越低，说明模型在面对数据时越「不困惑」，预测越精准。</blockquote>
+      <blockquote class="lab-quote"><b>b63</b>大家用的测试数据集和训练数据配方都不一样。哪怕指标一样，你的 0.7 和我的 0.7 可能代表不同的智力水平。</blockquote>
+      <blockquote class="lab-quote"><b>b65</b>比如大放异彩的「思维链推理」，它让模型变聪明了无数倍，但它并不会降低模型本身的困惑度数值。</blockquote>
+    </div>
+    <div class="limit"><b>局限：</b>coverage=partial，仅取得选段；缺少原长文、图表数据、实验设置和可复现方法，无法核验阈值与预测，也不能据此判断全文是否有可复用技术信息。</div>
+    <div class="row-actions"><span class="btn primary">重新抓取全文</span><span class="btn ghost">就按选段生成定向卡片</span><span class="btn ghost">丢弃</span></div>
+  </div>
+  <div class="v1-strip"><b>V1 对照：</b>同样这份 12000 字的截断文本，V1 直接给出「值得读 · 研究解读」并生成了知识卡片——没有意识到自己只看到了半篇文章。</div>
+</div>
+
+<!-- 案例 B -->
+<h2>案例 B · 粘贴的完整短文（六步复习法）</h2>
+<div class="case-tag">输入：粘贴正文 ~600 字 · coverage=full · 阅读目标「想搞懂怎么把间隔复习落地到日常」</div>
+<div class="report">
+  <div class="rep-head">
+    <h3>把复习搬进通勤的 40 分钟：一套可复制的方法</h3>
+    <div class="meta"><span class="chip ai">DeepSeek 实时分析</span><span>粘贴文本 · 刚刚</span><span class="chip mute">coverage: full</span></div>
+  </div>
+  <div class="verdict read_parts">
+    <div class="badge">◈ 只读部分 · 每段都有用，但不必通读</div>
+    <div class="summary">材料给出了一套把间隔复习嵌入通勤固定场景的六步做法：场景触发、限制队列、三档反馈、模糊卡周末加工、中断顺延、每周抽查并调整间隔。</div>
+    <p><b>为什么不建议通读：</b>步骤具体、可以照做，但正文几乎每段都在重复上一段的后半句，通读性价比低；只需读每段新增的操作步骤。</p>
+    <div class="lab-sec"><h4>去读哪段</h4>
+      <div class="lab-li"><b>b1</b><i>读第一步：用固定时段和场景触发启动复习，替代靠意志力。</i></div>
+      <div class="lab-li"><b>b2</b><i>读第二步：把每日复习队列控制在 15 张以内，避免过载弃坑。</i></div>
+      <div class="lab-li"><b>b3</b><i>读第三步：给出「记住／模糊／忘记」的可操作判断标准。</i></div>
+      <div class="lab-li"><b>b6</b><i>读每周抽查：用 10 张样本和 60% 记住率判断间隔是否过长，并调整 D14/D30 卡片。</i></div>
+    </div>
+    <div class="lab-sec"><h4>原文证据</h4>
+      <blockquote class="lab-quote"><b>b1</b>地铁上掏出手机的第一件事就是打开复习队列</blockquote>
+      <blockquote class="lab-quote"><b>b3</b>合上书能复述才算「记住」</blockquote>
+      <blockquote class="lab-quote"><b>b6</b>统计记住率低于 60% 就说明间隔太长</blockquote>
+    </div>
+    <div class="limit"><b>局限：</b>没有说明具体间隔参数如何从一开始设置；15 张上限和 60% 阈值是作者建议，未见依据。若要完整落地，还需自行确定新卡数量与每日时间分配。</div>
+    <div class="row-actions"><span class="btn primary">按 6 个段落生成定向卡片</span><span class="btn ghost">查看原文</span></div>
+  </div>
+  <div class="v1-strip"><b>V1 对照：</b>V1 对这类「结构良好」的文章只会输出「值得读 + 四条要点」，不会告诉你 b8 是重复内容可跳过，也不会标注「60% 阈值是作者建议、未见依据」。</div>
+</div>
+
+<!-- 案例 C -->
+<h2>案例 C · 维基百科条目（超长被截断）</h2>
+<div class="case-tag">输入：en.wikipedia.org/wiki/Spaced_repetition · coverage=partial · 80 段 / 30000 字</div>
+<div class="report">
+  <div class="verdict insufficient">
+    <div class="badge">⚠ 材料不足 · 但局部内容已足够先读</div>
+    <div class="summary">材料是维基百科「间隔重复」条目的选段，介绍该学习方法的定义、历史、研究证据、算法与实现。</div>
+    <p><b>为什么不建议直接通读：</b>当前只取得选段而非全文，无法判断整篇是否值得通读；不过选段已足以让初次接触者快速了解定义、适用场景、争议和两种基本做法。</p>
+    <div class="lab-sec"><h4>去读哪段</h4>
+      <div class="lab-li"><b>b33</b><i>给出间隔重复的核心定义与卡片调度原则：新卡和难卡更频繁出现，旧卡和易卡减少出现。</i></div>
+      <div class="lab-li"><b>b61</b><i>概括证据与争议：间隔重复被广泛接受，但「扩展间隔」未必明显优于均匀间隔。</i></div>
+      <div class="lab-li"><b>b62</b><i>补上争议面：扩展间隔为何有效的机制证据不足，最佳安排可能因人而异。</i></div>
+      <div class="lab-li"><b>b75</b><i>具体描述 Leitner 实体卡片盒的操作规则：答对进下一组、答错回到第一组。</i></div>
+      <div class="lab-li"><b>b77</b><i>列出 Pimsleur 音频教学使用的精确复习间隔序列，能看出一种落地方式。</i></div>
+    </div>
+    <div class="lab-sec"><h4>原文证据</h4>
+      <blockquote class="lab-quote"><b>b33</b>Newly introduced and more difficult flashcards are shown more frequently…</blockquote>
+      <blockquote class="lab-quote"><b>b61</b>There is evidence that the popular method of "expanding intervals"…</blockquote>
+      <blockquote class="lab-quote"><b>b62</b>However, little evidence has been found to back this claim.</blockquote>
+      <blockquote class="lab-quote"><b>b77</b>The intervals published in Pimsleur's paper were: 5 seconds, 25 seconds, 2 minutes…</blockquote>
+    </div>
+    <div class="limit"><b>局限：</b>仅有部分章节和导航/参考文献碎片；页面顶部还有「需要更多引用」的维护提示，因此无法据此评估整篇质量或核实具体研究结论。</div>
+    <div class="row-actions"><span class="btn primary">重新抓取全文</span><span class="btn ghost">先读这 5 段</span><span class="btn ghost">丢弃</span></div>
+  </div>
+  <div class="v1-strip"><b>V1 对照：</b>对维基条目 V1 同样直接输出「值得读 + 知识卡片」，无法表达「这是一篇 3 万字的条目，你只拿到了一部分」这一关键事实。</div>
+</div>
+
+<footer>拾忆 · V2 分析报告预览 —— 三个案例的 verdict / summary / reason / readHere / evidence / limitation 均为 DeepSeek 真实输出，非人工编写。查看交互版：原型导航「对比实验 · LAB」。</footer>
+</div>
+</body>
+</html>

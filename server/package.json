@@ -1,0 +1,13 @@
+{
+  "name": "shiyi-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "拾忆部署版服务：静态托管 + 加固 AI 通道（Node.js 20，零依赖）",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20 <22"
+  }
+}

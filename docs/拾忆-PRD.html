@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>拾忆 · 产品需求文档（PRD）</title>
+<style>
+  :root{
+    --ink:#1e293b; --ink-soft:#475569; --ink-faint:#94a3b8;
+    --accent:#4f46e5; --accent-soft:#eef2ff; --accent-border:#c7d2fe;
+    --green:#059669; --green-soft:#ecfdf5;
+    --amber:#b45309; --amber-soft:#fffbeb; --amber-border:#fde68a;
+    --red:#b91c1c; --red-soft:#fef2f2;
+    --line:#e2e8f0; --bg:#f8fafc; --card:#ffffff;
+    --radius:12px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{font-family:system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+       background:var(--bg); color:var(--ink); line-height:1.75; font-size:15px;}
+  .page{max-width:960px; margin:0 auto; padding:0 24px 96px;}
+
+  header.hero{background:linear-gradient(135deg,#4f46e5 0%,#7c3aed 100%); color:#fff;
+       padding:56px 24px 40px; margin-bottom:32px;}
+  header.hero .inner{max-width:960px; margin:0 auto;}
+  .hero h1{font-size:34px; font-weight:700; letter-spacing:1px;}
+  .hero .sub{margin-top:8px; font-size:15px; opacity:.9;}
+  .hero .meta{display:flex; flex-wrap:wrap; gap:10px; margin-top:20px;}
+  .hero .meta span{background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.3);
+       border-radius:999px; padding:3px 14px; font-size:13px;}
+
+  nav.toc{position:sticky; top:0; z-index:50; background:rgba(255,255,255,.94);
+       backdrop-filter:blur(6px); border-bottom:1px solid var(--line);
+       margin:0 -24px 32px; padding:10px 24px;}
+  nav.toc .inner{max-width:960px; margin:0 auto; display:flex; flex-wrap:wrap; gap:4px 18px;}
+  nav.toc a{color:var(--ink-soft); text-decoration:none; font-size:13.5px; padding:2px 0;}
+  nav.toc a:hover{color:var(--accent);}
+
+  h2{font-size:22px; margin:56px 0 16px; padding-bottom:8px; border-bottom:2px solid var(--accent-border);
+     display:flex; align-items:center; gap:10px;}
+  h2 .num{background:var(--accent); color:#fff; font-size:13px; border-radius:8px;
+     padding:2px 10px; font-weight:600; letter-spacing:.5px;}
+  h3{font-size:17px; margin:28px 0 10px; color:var(--ink);}
+  h4{font-size:15px; margin:18px 0 8px; color:var(--ink);}
+  p{margin:8px 0;}
+  ul,ol{margin:8px 0 8px 22px;}
+  li{margin:4px 0;}
+  section{scroll-margin-top:64px;}
+
+  table{width:100%; border-collapse:collapse; margin:12px 0; background:var(--card);
+       font-size:14px; border-radius:var(--radius); overflow:hidden; box-shadow:0 1px 3px rgba(15,23,42,.06);}
+  th{background:var(--accent-soft); color:var(--accent); text-align:left; font-weight:600;
+     padding:9px 12px; border:1px solid var(--line); white-space:nowrap;}
+  td{padding:9px 12px; border:1px solid var(--line); vertical-align:top; color:var(--ink-soft);}
+  td b{color:var(--ink);}
+  tr td:first-child{white-space:nowrap;}
+
+  .card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+       padding:18px 20px; margin:14px 0; box-shadow:0 1px 3px rgba(15,23,42,.05);}
+  .card h4{margin-top:0;}
+
+  .assume{display:inline-block; background:var(--amber-soft); border:1px solid var(--amber-border);
+       color:var(--amber); font-size:12px; border-radius:6px; padding:0 8px; white-space:nowrap; vertical-align:1px;}
+  .tbd{display:inline-block; background:var(--red-soft); border:1px solid #fecaca;
+       color:var(--red); font-size:12px; border-radius:6px; padding:0 8px; white-space:nowrap; vertical-align:1px;}
+
+  .flow{display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:14px 0;}
+  .flow .node{background:var(--card); border:1.5px solid var(--accent-border); color:var(--ink);
+       border-radius:9px; padding:6px 13px; font-size:13.5px; font-weight:500;}
+  .flow .node.bad{border-color:#fca5a5; background:var(--red-soft);}
+  .flow .node.good{border-color:#6ee7b7; background:var(--green-soft);}
+  .flow .arrow{color:var(--ink-faint); font-size:15px;}
+  .flow .branch{font-size:12.5px; color:var(--ink-faint);}
+
+  .fr{border-left:4px solid var(--accent); background:var(--card); border-radius:0 var(--radius) var(--radius) 0;
+     box-shadow:0 1px 3px rgba(15,23,42,.05); padding:18px 22px; margin:22px 0;}
+  .fr .id{font-size:12.5px; font-weight:700; color:var(--accent); letter-spacing:1px;}
+  .fr h3{margin:4px 0 6px;}
+
+  .demo{border:2px dashed var(--accent-border); background:linear-gradient(180deg,#fafbff,#f3f4ff);
+     border-radius:var(--radius); padding:20px 22px; margin:18px 0;}
+  .demo .demo-tag{display:inline-block; background:var(--accent); color:#fff; font-size:12px;
+     border-radius:6px; padding:2px 10px; margin-bottom:10px; letter-spacing:1px;}
+  .demo .demo-note{font-size:12.5px; color:var(--ink-faint); margin-top:10px;}
+  button{font-family:inherit; cursor:pointer; border:1px solid var(--accent); background:var(--accent);
+     color:#fff; border-radius:8px; padding:7px 16px; font-size:13.5px; font-weight:500;}
+  button:hover{opacity:.9;}
+  button.ghost{background:#fff; color:var(--accent);}
+  button.danger{background:#fff; border-color:#fca5a5; color:var(--red);}
+  button:disabled{opacity:.45; cursor:not-allowed;}
+  .demo-screen{background:#fff; border:1px solid var(--line); border-radius:10px; padding:16px; min-height:120px; margin-top:12px;}
+  .mini{font-size:13px; color:var(--ink-soft);}
+  .chip{display:inline-block; border-radius:999px; font-size:12px; padding:1px 10px; margin-right:6px;}
+  .chip.high{background:var(--green-soft); color:var(--green); border:1px solid #6ee7b7;}
+  .chip.low{background:var(--amber-soft); color:var(--amber); border:1px solid var(--amber-border);}
+  .chip.wait{background:#f1f5f9; color:var(--ink-soft); border:1px solid var(--line);}
+  .chip.proc{background:var(--accent-soft); color:var(--accent); border:1px solid var(--accent-border);}
+  .flashcard{background:#fff; border:1.5px solid var(--accent-border); border-radius:10px; padding:16px; min-height:110px;}
+  .flashcard .q{font-size:16px; font-weight:600;}
+  .flashcard .a{font-size:13.5px; color:var(--ink-soft); margin-top:8px;}
+  .review-stats{display:flex; gap:14px; font-size:13px; color:var(--ink-soft); margin-top:12px;}
+  .review-stats b{color:var(--accent);}
+  .toast{background:var(--ink); color:#fff; font-size:13px; border-radius:8px; padding:8px 14px; display:inline-block; margin-top:10px;}
+  .hint{font-size:13px; color:var(--ink-faint); margin-top:6px;}
+  .pill-row{display:flex; flex-wrap:wrap; gap:8px; margin:10px 0;}
+  .pill{background:var(--accent-soft); border:1px solid var(--accent-border); color:var(--accent);
+     border-radius:999px; padding:3px 14px; font-size:13px;}
+  .pill.mute{background:#f1f5f9; border-color:var(--line); color:var(--ink-soft);}
+  code{background:#f1f5f9; border-radius:5px; padding:1px 6px; font-size:13px; color:var(--ink);}
+  .callout{background:var(--accent-soft); border-left:4px solid var(--accent); border-radius:0 10px 10px 0;
+     padding:12px 16px; font-size:14px; margin:14px 0; color:var(--ink-soft);}
+  footer{margin-top:72px; padding-top:20px; border-top:1px solid var(--line); font-size:12.5px; color:var(--ink-faint);}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="inner">
+    <h1>拾忆 · 产品需求文档</h1>
+    <div class="sub">把「收藏了就吃灰」的内容，变成「会被记住」的知识卡片。</div>
+    <div class="meta">
+      <span>版本 v1.1 · 待评审</span>
+      <span>日期 2026-11-23</span>
+      <span>产品形态：Web 端 + 浏览器插件</span>
+      <span>文档类型：新产品 PRD（重度）</span>
+      <span>工作名「拾忆」<span class="tbd">正式名 TBD</span></span>
+    </div>
+  </div>
+</header>
+
+<nav class="toc">
+  <div class="inner">
+    <a href="#s1">1 背景与目标</a>
+    <a href="#s2">2 产品契约</a>
+    <a href="#s3">3 范围</a>
+    <a href="#s4">4 对象与状态</a>
+    <a href="#s5">5 功能需求</a>
+    <a href="#s6">6 共享规则与异常</a>
+    <a href="#s7">7 术语表</a>
+    <a href="#s8">8 开放问题</a>
+  </div>
+</nav>
+
+<div class="page">
+
+<!-- ============ 1 背景与目标 ============ -->
+<section id="s1">
+<h2><span class="num">1</span>背景与目标</h2>
+<p>用户日常在浏览器中消费大量碎片化内容：公众号文章、小红书笔记、长篇技术文档、图片、视频链接等。其中混杂着大量 AI 生成的低营养文章与营销软文，也夹杂着真实有价值的内容。用户的默认应对方式是「收藏」，但收藏夹往往从此不再被打开——<b>收藏 ≠ 掌握</b>。</p>
+<div class="callout">
+  <b>问题链：</b>用户遇到值得保存的内容 → 收藏 → 从不回顾 → 内容真正失效、收藏夹吃灰<br>
+  <b>产品响应：</b>提供一条「丢入 → AI 判定与提炼 → 知识卡片 → 按遗忘曲线复习」的闭环，让用户收藏的内容被真正消费和记住。
+</div>
+<p><b>目标（可观察结果）：</b></p>
+<ul>
+  <li>用户在浏览器中遇到任何内容时，能在不离开当前页面的情况下将其丢入收件箱；</li>
+  <li>丢入的内容会得到一份 AI 价值判定与理由，有价值的内容被自动提炼为知识卡片；</li>
+  <li>用户每天可以完成当日到期的复习，复习完成的卡片进入「已巩固」状态，不再占用每日注意力。</li>
+</ul>
+<p>本产品为个人工具，不做协作与社交信息流；商业化模式不在本文档范围内（见开放问题）。</p>
+</section>
+
+<!-- ============ 2 产品契约 ============ -->
+<section id="s2">
+<h2><span class="num">2</span>产品契约</h2>
+<table>
+  <tr><th>要素</th><th>定义</th></tr>
+  <tr><td><b>主要用户</b></td><td>有「收藏夹吃灰」困扰的个人内容消费者：公众号读者、小红书用户、技术文档读者。单一角色：收藏者本人；分享页的查看者为只读访客，不构成独立角色。</td></tr>
+  <tr><td><b>触发</b></td><td>用户在浏览器中遇到想保存的内容（网页、选中文本、图片、文档），通过插件一键丢入收件箱；或在 Web 端粘贴 / 拖拽上传。</td></tr>
+  <tr><td><b>核心任务</b></td><td>把「收藏了但不会再看」的内容转化为「会被记住」的知识卡片，并通过复习计划被真正掌握。</td></tr>
+  <tr><td><b>完成条件</b></td><td>内容被判定并提炼为知识卡片且进入复习计划；用户按计划完成全部复习间隔后，卡片进入「已巩固」状态。</td></tr>
+  <tr><td><b>共享业务对象</b></td><td>收藏内容（Capture）→ 知识卡片（Card）→ 复习计划（ReviewSchedule）→ 复习记录（Review）。全部归属单一用户账户。</td></tr>
+  <tr><td><b>后果性动作与信任</b></td><td>① 丢弃内容与删除卡片：仅由用户显式确认触发，进入回收站且可恢复（规则 R2）。② 公开分享卡片：用户显式开启才生成公开链接，可随时关闭（FR-08）。AI 永远不自动删除用户内容。</td></tr>
+</table>
+</section>
+
+<!-- ============ 3 范围 ============ -->
+<section id="s3">
+<h2><span class="num">3</span>范围</h2>
+<h3>最小完整旅程（P0）</h3>
+<ul>
+  <li><b>入口条件：</b>用户已登录账户，插件已安装。</li>
+  <li><b>P0 动作：</b>丢入内容（FR-01）→ AI 处理与判定（FR-02）→ 低价值内容用户确认（FR-03）→ 生成知识卡片（FR-02/04）→ 卡片库管理（FR-05）→ 每日复习（FR-06/07）。</li>
+  <li><b>完成证据：</b>收件箱中每条内容都有明确去向（已转化 / 已丢弃 / 待确认 / 失败可重试）；每日复习队列可以被清空。</li>
+  <li><b>关键恢复路径：</b>AI 处理失败的内容可重试；抓取受限的内容允许用户粘贴正文继续处理（FR-01）；丢弃与删除均可从回收站恢复（R2）。</li>
+</ul>
+<h3>P1（明确后续，不阻塞 P0）</h3>
+<ul>
+  <li><b>记忆宫殿复习模式：</b>将卡片放置到一个可视化的空间（如房间、路线）中的位置，复习时沿空间漫游，借助空间记忆辅助回忆。交互形态需在 P1 启动前专项定义（见开放问题）。复习结果回写同一套艾宾浩斯计划（R1）。</li>
+  <li><b>多端同步（移动端）：</b>手机端查看卡片与复习；不作为首个版本范围。</li>
+</ul>
+<h3>排除项（非目标）</h3>
+<div class="pill-row">
+  <span class="pill mute">移动端 App（P0 不做）</span>
+  <span class="pill mute">团队协作 / 多人空间</span>
+  <span class="pill mute">社交信息流 / 内容推荐</span>
+  <span class="pill mute">跨用户内容市场</span>
+  <span class="pill mute">写作 / 笔记编辑器</span>
+  <span class="pill mute">AI 自动删除用户数据</span>
+</div>
+<p class="hint">排除「自动删除」：与用户确认的决策一致（见 §2 后果性动作），AI 判定为低价值的内容永远只是「待确认」，不会消失。</p>
+</section>
+
+<!-- ============ 4 对象与状态 ============ -->
+<section id="s4">
+<h2><span class="num">4</span>核心对象与状态</h2>
+
+<h3>4.1 对象模型</h3>
+<table>
+  <tr><th>对象</th><th>含义</th><th>关键字段</th></tr>
+  <tr><td><b>收藏内容 Capture</b></td><td>用户丢入的原始内容</td><td>内容类型（链接 / 选中文本 / 图片 / 文档）、来源 URL、原文快照、收集时间、AI 判定结论与理由、处理状态</td></tr>
+  <tr><td><b>知识卡片 Card</b></td><td>AI 从有价值内容中提炼的核心知识</td><td>一句话总结、核心要点（3–5 条）、关键摘录、来源链接、主题标签、判定理由</td></tr>
+  <tr><td><b>复习计划 ReviewSchedule</b></td><td>卡片的艾宾浩斯复习安排</td><td>当前间隔阶段、下次复习时间、累计复习次数、是否已完成</td></tr>
+  <tr><td><b>复习记录 Review</b></td><td>一次复习的反馈</td><td>卡片、反馈（记住 / 模糊 / 忘记）、复习时间、反馈后的间隔变化</td></tr>
+</table>
+
+<h3>4.2 收藏内容（Capture）状态机</h3>
+<div class="flow">
+  <span class="node">待处理</span><span class="arrow">→</span>
+  <span class="node">处理中</span><span class="arrow">→</span>
+  <span class="node good">已转化（生成卡片）</span>
+</div>
+<div class="flow">
+  <span class="node">处理中</span><span class="arrow">→</span>
+  <span class="node bad">判定为低价值 → 待确认</span><span class="arrow">→</span>
+  <span class="node bad">已丢弃（入回收站）</span><span class="branch">或</span>
+  <span class="node good">强制保留 → 已转化</span>
+</div>
+<div class="flow">
+  <span class="node">处理中</span><span class="arrow">→</span>
+  <span class="node bad">失败 → 待重试</span><span class="arrow">→</span>
+  <span class="node">重新处理</span>
+</div>
+<table>
+  <tr><th>当前状态</th><th>允许的操作</th><th>禁止的操作</th></tr>
+  <tr><td>待处理 / 处理中</td><td>查看详情、取消处理</td><td>编辑、丢弃</td></tr>
+  <tr><td>待确认（低价值）</td><td>丢弃、强制保留生成卡片、批量操作</td><td>直接删除原文（必须经确认动作）</td></tr>
+  <tr><td>失败 / 待重试</td><td>重试、粘贴正文补充、丢弃</td><td>—</td></tr>
+  <tr><td>已转化</td><td>跳转到卡片、归档原文</td><td>重新生成（除非用户手动重试 AI）</td></tr>
+</table>
+
+<h3>4.3 知识卡片（Card）状态机</h3>
+<div class="flow">
+  <span class="node">正常（学习中）</span><span class="arrow">→</span>
+  <span class="node good">已巩固（完成全部间隔）</span><span class="arrow">→</span>
+  <span class="node">归档（用户手动）</span>
+</div>
+<p>卡片生成后即为「正常」状态并立即进入复习计划（不做草稿确认环节——AI 判定有价值即直接转化，减轻用户负担；卡片随时可编辑）。归档与删除进入回收站，可恢复（R2）。卡片被删除时，其复习计划一并终止。</p>
+</section>
+
+<!-- ============ 5 功能需求 ============ -->
+<section id="s5">
+<h2><span class="num">5</span>功能需求</h2>
+
+<!-- FR-01 -->
+<div class="fr">
+  <div class="id">FR-01 · 内容收集</div>
+  <h3>浏览器插件 + Web 端收集入口</h3>
+  <p><b>目的：</b>让用户在遇到内容的当下、不离开当前页面，就能把内容丢入收件箱——这是整个旅程的入口，摩擦必须最小。</p>
+  <h4>触发与入口</h4>
+  <table>
+    <tr><th>入口</th><th>支持内容</th><th>操作方式</th></tr>
+    <tr><td>插件右键菜单</td><td>网页链接、选中文本、图片</td><td>右键 →「拾忆 · 收藏此内容 / 收藏选中文本 / 收藏此图片」</td></tr>
+    <tr><td>插件弹窗</td><td>任意粘贴的链接 / 文本</td><td>点击插件图标 → 粘贴 → 提交</td></tr>
+    <tr><td>Web 端上传</td><td>文档（PDF / TXT / Markdown / Word <span class="assume">[Assumption, TBD]</span>）、图片、链接、纯文本</td><td>拖拽或粘贴上传</td></tr>
+  </table>
+  <h4>处理规则</h4>
+  <ul>
+    <li>提交后立即返回成功反馈（toast「已加入收件箱」），处理在后台异步进行（见 FR-02）。</li>
+    <li>收集时保存<b>原文快照</b>（规则 R4），以保证原文失效后卡片仍可溯源。</li>
+    <li>同一条 URL 重复收集时，提示「此内容已在收件箱 / 已有卡片」，不产生重复条目。</li>
+  </ul>
+  <h4>异常</h4>
+  <ul>
+    <li><b>抓取受限</b>（需登录、付费墙、反爬页面）：内容标记为「抓取受限」，插件浮层引导用户「选中正文文字再收藏」，选中文本路径不受此限制。</li>
+    <li><b>未登录提交：</b>插件暂存最近一次提交（本地），引导登录后自动补交。</li>
+  </ul>
+</div>
+
+<!-- FR-02 -->
+<div class="fr">
+  <div class="id">FR-02 · AI 内容处理</div>
+  <h3>价值判定 → 核心提取 → 卡片生成</h3>
+  <p><b>目的：</b>替用户完成「读什么、值得吗、重点是什么」的判断，产出可直接复习的知识卡片。</p>
+  <h4>触发</h4>
+  <p>内容进入收件箱后自动开始，无需用户操作。处理状态（处理中 / 完成 / 失败）在收件箱条目上实时可见。</p>
+  <h4>处理链</h4>
+  <div class="flow">
+    <span class="node">抓取 / OCR / 文档解析</span><span class="arrow">→</span>
+    <span class="node">原文快照（R4）</span><span class="arrow">→</span>
+    <span class="node">价值判定</span><span class="arrow">→</span>
+    <span class="node">核心提取</span><span class="arrow">→</span>
+    <span class="node good">卡片生成</span>
+  </div>
+  <h4>分析报告 · 产品入口体验</h4>
+  <p>分析判定是本产品的入口时刻（评审共识）：<b>处理链在收件箱条目上可视化展示</b>（抓取 → 通读全文 → 价值判定 → 要点提炼，逐步点亮，让 AI「干活」看得见）；处理完成后以<b>分析报告页</b>呈现结果——判定结论（值得读 / 不建议读）、判定理由、内容类型标签与核心要点预览，视觉上为第一屏主角而非一条附带通知。分析报告页是后续所有动作的出发点：卡片查看/编辑、进入复习、内容裁决均从报告页发起。</p>
+  <h4>价值判定输出</h4>
+  <table>
+    <tr><th>字段</th><th>说明</th></tr>
+    <tr><td><b>结论</b></td><td>有阅读价值 / 无阅读价值（两值，不做中间等级，避免判定抖动）</td></tr>
+    <tr><td><b>判定理由</b></td><td>1–2 句话，向用户说明「为什么值得 / 不值得读」，是用户确认环节（FR-03）的决策依据</td></tr>
+    <tr><td><b>内容类型标签</b></td><td>如：技术文档 / 观点文章 / 教程 / 资讯 / 营销推广 / AI 水文（标签集 <span class="assume">[Assumption, TBD]</span>，可迭代）</td></tr>
+  </table>
+  <h4>结果分流</h4>
+  <ul>
+    <li><b>判定为有价值：</b>直接生成知识卡片并进入复习计划，字段为——一句话总结、3–5 条核心要点、关键原文摘录、来源链接、AI 主题标签、判定理由；生成<b>无需用户二次确认</b>（评审共识），分析报告页即时提供「查看 / 编辑卡片」与「开始今日复习」入口。</li>
+    <li><b>判定为无阅读价值：</b>不生成卡片，进入「待确认」队列，等待用户裁决（FR-03）；分析报告页同时提供「丢弃 / 强制保留 / 前往待确认」三种裁决入口。AI 不做任何删除。</li>
+    <li><b>处理失败：</b>自动重试 1 次（R3），仍失败则进入「待重试」，通知用户。</li>
+  </ul>
+  <h4>异常</h4>
+  <ul>
+    <li>图片无法识别有效文字时，判定失败并提示用户改用文档 / 文本形式提交。</li>
+    <li>超长文档（如上百页 PDF）只提炼卡片不截断丢弃，处理时长在条目上明示。</li>
+  </ul>
+</div>
+
+<div class="demo">
+  <span class="demo-tag">交互演示 A · 对应 FR-01 / FR-02 / FR-03</span>
+  <p class="mini">模拟「丢入内容 → AI 处理 → 判定结果」的完整链路。选择一种内容类型体验两种判定结果；在「低价值」路径中体验用户确认环节。</p>
+  <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+    <button onclick="demoA('good')">丢入：一篇深度技术文章（链接）</button>
+    <button onclick="demoA('low')">丢入：一篇 AI 生成的软文（链接）</button>
+    <button class="ghost" onclick="demoAReset()">重置</button>
+  </div>
+  <div class="demo-screen" id="demoA-screen">
+    <span class="chip wait">收件箱 · 空闲</span>
+    <p class="mini" style="margin-top:8px;">点击上方按钮，模拟从浏览器右键收藏一条内容。</p>
+  </div>
+  <div class="demo-note">演示为预置脚本，真实处理时长以线上 AI 服务为准（性能指标不在本文档范围）。</div>
+</div>
+
+<!-- FR-03 -->
+<div class="fr">
+  <div class="id">FR-03 · 低价值内容确认</div>
+  <h3>用户裁决 AI 判定为「无阅读价值」的内容</h3>
+  <p><b>目的：</b>AI 只建议、用户裁决。既过滤噪音，又保证用户对自己的收藏有最终控制权（§2 后果性动作）。</p>
+  <h4>触发</h4>
+  <p>FR-02 判定为「无阅读价值」的内容进入 Web 端「待确认」列表，条目展示：内容预览 + AI 判定理由 + 内容类型标签。</p>
+  <h4>用户操作</h4>
+  <table>
+    <tr><th>操作</th><th>结果</th></tr>
+    <tr><td><b>丢弃</b></td><td>内容移入回收站（R2，30 天可恢复），不生成卡片</td></tr>
+    <tr><td><b>保留</b></td><td>覆盖 AI 判定，仍生成知识卡片并进入复习计划</td></tr>
+    <tr><td><b>忽略</b></td><td>留在待确认列表；滞留超过 7 天自动移入回收站 <span class="assume">[Assumption, TBD]</span>，回收站内可恢复</td></tr>
+  </table>
+  <ul>
+    <li>支持<b>批量</b>丢弃 / 保留；批量丢弃前显示影响数量并要求二次确认。</li>
+    <li>用户「保留」的判定会作为信号反馈给后续判定（产品决策：同类内容的误判率是判定质量的重要观测点，机制细节 <span class="tbd">TBD</span>）。</li>
+  </ul>
+</div>
+
+<!-- FR-04 -->
+<div class="fr">
+  <div class="id">FR-04 · 卡片查看与编辑</div>
+  <h3>知识卡片的编辑与生命周期管理</h3>
+  <h4>触发</h4>
+  <p>卡片生成后（含 FR-03 强制保留路径），用户在卡片库中打开任意卡片。</p>
+  <h4>规则</h4>
+  <ul>
+    <li>卡片全部字段（总结、要点、摘录、标签）<b>可编辑</b>；编辑不重置复习进度（共享决策）。</li>
+    <li>卡片详情页提供<b>原文溯源</b>：跳转原始链接，链接失效时展示原文快照（R4）。</li>
+    <li>用户可<b>归档</b>卡片（暂停复习、移出队列）与<b>删除</b>卡片（入回收站，R2）。</li>
+    <li>用户可对卡片手动触发「重新提炼」（AI 重跑），重跑覆盖 AI 生成字段，不覆盖用户编辑过的字段（字段级保护 <span class="assume">[Assumption, TBD]</span>）。</li>
+  </ul>
+</div>
+
+<!-- FR-05 -->
+<div class="fr">
+  <div class="id">FR-05 · 卡片库</div>
+  <h3>知识卡片的组织与浏览</h3>
+  <h4>规则</h4>
+  <ul>
+    <li>浏览维度：按收集时间、按主题标签、按来源（链接域名）；支持全文搜索（搜卡片内容与原文快照）。</li>
+    <li>标签体系：AI 自动打标为主，用户可增删改；卡片可属多个标签。</li>
+    <li>卡片库首页展示状态概览：学习中 / 今日待复习 / 已巩固 / 归档，四个计数。</li>
+    <li>空状态：新用户卡片库为空时，引导「先去丢入第一条内容」（链接到收件箱）。</li>
+  </ul>
+</div>
+
+<!-- FR-06 -->
+<div class="fr">
+  <div class="id">FR-06 · 艾宾浩斯复习系统</div>
+  <h3>每日复习队列与间隔反馈</h3>
+  <p><b>目的：</b>把「收藏」变成「记住」。复习是这个产品的核心闭环——没有复习，前面的提炼都没有意义。</p>
+  <h4>触发</h4>
+  <p>用户打开 Web 端「今日复习」页面；或收到复习提醒（FR-07）。</p>
+  <h4>复习流程</h4>
+  <ol>
+    <li>展示卡片<b>正面</b>：一句话总结（用户先主动回忆）；</li>
+    <li>用户点击<b>翻面</b>：查看核心要点与摘录，自评记忆效果；</li>
+    <li>用户给出反馈：<b>忘记 / 模糊 / 记住</b> 三选一；</li>
+    <li>系统按规则 R1 调整该卡片的下次复习时间，并进入下一张。</li>
+  </ol>
+  <h4>规则</h4>
+  <ul>
+    <li>每日队列只显示<b>今日到期</b>的卡片，顺序按到期时间升序 <span class="assume">[Assumption, TBD]</span>；队列清空即当日复习完成。</li>
+    <li>间隔反馈实时生效，跨端同步（FR-09）。</li>
+    <li>复习页面始终展示队列进度（第 x / n 张）与今日统计。</li>
+  </ul>
+  <h4>异常</h4>
+  <ul>
+    <li><b>复习中断</b>（中途关闭页面）：已提交的反馈已生效，未复习的卡片保留在队列中，下次进入继续。</li>
+    <li><b>逾期未复习：</b>过期卡片顺延到下一天，不做惩罚性堆积限制；连续逾期卡片在统计区以「逾期」计数提示 <span class="assume">[Assumption, TBD]</span>。</li>
+    <li><b>队列过载：</b>单日到期超过 50 张时，允许用户「今日先复习 20 张」，剩余顺延 <span class="assume">[Assumption, TBD]</span>。</li>
+  </ul>
+</div>
+
+<div class="demo">
+  <span class="demo-tag">交互演示 B · 对应 FR-06</span>
+  <p class="mini">模拟每日复习队列：先回忆 → 翻面核对 → 反馈。注意每次反馈后系统给出的间隔变化（遵循规则 R1），以及队列计数的变化。</p>
+  <div class="demo-screen" id="demoB-screen">
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <button onclick="demoBStart()">开始今日复习（3 张到期）</button>
+    </div>
+    <p class="mini" style="margin-top:8px;">点击开始体验复习流程。</p>
+  </div>
+  <div id="demoB-stats" class="review-stats"></div>
+  <div class="demo-note">演示使用间隔序列 D0 → D1 → D3 → D7 → D14 → D30（见规则 R1，间隔数值本身为待验证假设）。</div>
+</div>
+
+<!-- FR-07 -->
+<div class="fr">
+  <div class="id">FR-07 · 复习提醒</div>
+  <h3>让用户回到复习队列</h3>
+  <h4>规则</h4>
+  <ul>
+    <li>提醒渠道：<b>浏览器通知</b>（插件侧，需用户授权）+ Web 端打开时的顶部横幅。最终渠道组合与提醒时间 <span class="tbd">TBD</span>（见开放问题）。</li>
+    <li>提醒内容固定为行动导向：「今日有 n 张卡片待复习」+ 一键进入复习页。</li>
+    <li>用户可全局关闭提醒；关闭后 Web 端横幅仍保留（不构成打扰）。</li>
+    <li>当队列中没有到期卡片时，不发送提醒。</li>
+  </ul>
+</div>
+
+<!-- FR-08 -->
+<div class="fr">
+  <div class="id">FR-08 · 轻分享</div>
+  <h3>卡片的公开只读链接</h3>
+  <h4>触发</h4>
+  <p>用户在卡片详情页显式点击「生成分享链接」。</p>
+  <h4>规则</h4>
+  <ul>
+    <li>分享页为<b>公开只读</b>：展示卡片内容（总结、要点、摘录）与原文来源；不暴露用户的其他卡片与账户信息。</li>
+    <li>默认关闭；仅对被分享的那一张卡片生效，不影响其他卡片。</li>
+    <li>用户可随时关闭分享链接，关闭后链接立即失效。</li>
+    <li>被分享卡片此后被编辑 / 删除时，分享页同步更新 / 失效。</li>
+  </ul>
+</div>
+
+<!-- FR-09 -->
+<div class="fr">
+  <div class="id">FR-09 · 账户与同步</div>
+  <h3>插件与 Web 端同源账户</h3>
+  <h4>规则</h4>
+  <ul>
+    <li>插件与 Web 端使用同一账户登录（微信扫码 / 邮箱 <span class="assume">[Assumption, TBD]</span>）；全部对象归属该账户。</li>
+    <li>收藏、判定结果、卡片编辑、复习反馈全部<b>跨端实时同步</b>。</li>
+    <li>插件图标上显示当日待复习数徽标，作为轻量召回入口。</li>
+    <li>账户注销时，删除全部数据并使所有分享链接失效（后果性动作，需二次确认）。</li>
+  </ul>
+</div>
+</section>
+
+<!-- ============ 6 共享规则 ============ -->
+<section id="s6">
+<h2><span class="num">6</span>共享规则与异常</h2>
+<div class="card">
+  <h4>R1 · 艾宾浩斯复习间隔与反馈规则（唯一权威定义）</h4>
+  <p>间隔序列：<b>D0（当天内）→ D1 → D3 → D7 → D14 → D30</b>（天）<span class="assume">[Assumption, TBD]</span>。卡片生成当日即为 D0。</p>
+  <table>
+    <tr><th>用户反馈</th><th>间隔变化</th><th>说明</th></tr>
+    <tr><td><b>忘记</b></td><td>回到 D0，当天稍后再次出现在队列中</td><td>重新学习</td></tr>
+    <tr><td><b>模糊</b></td><td>停留在当前间隔，下次复习时间按当前间隔顺延</td><td>不前进也不后退</td></tr>
+    <tr><td><b>记住</b></td><td>进入下一间隔</td><td>巩固推进</td></tr>
+  </table>
+  <p>完成 D30 间隔并通过「记住」反馈后，卡片进入<b>已巩固</b>状态，永久退出每日队列（用户可在卡片库中手动重启复习）。FR-06 与未来的记忆宫殿（P1）都复用本规则回写复习计划。</p>
+</div>
+<div class="card">
+  <h4>R2 · 删除与恢复</h4>
+  <p>所有删除（丢弃内容、删除卡片）一律进入回收站，保留 30 天 <span class="assume">[Assumption, TBD]</span> 后彻底清除；回收站内可单条或批量恢复。彻底清除不可撤销。</p>
+</div>
+<div class="card">
+  <h4>R3 · AI 处理重试</h4>
+  <p>处理失败自动重试 1 次；仍失败进入「待重试」，用户可无限次手动重试。手动重试不重复扣减任何配额概念（配额属商业化范围，<span class="tbd">TBD</span>）。</p>
+</div>
+<div class="card">
+  <h4>R4 · 原文快照留存</h4>
+  <p>所有成功抓取的内容在处理时保存原文快照。卡片详情页的原文溯源优先跳原始链接，链接失效时自动降级为快照展示。快照为用户私有数据，随账户删除一并清除。</p>
+</div>
+</section>
+
+<!-- ============ 7 术语表 ============ -->
+<section id="s7">
+<h2><span class="num">7</span>术语表</h2>
+<table>
+  <tr><th>术语</th><th>定义</th></tr>
+  <tr><td><b>收件箱</b></td><td>用户丢入内容的入口队列，展示每条内容的处理状态与去向</td></tr>
+  <tr><td><b>知识卡片（Card）</b></td><td>AI 从有价值内容中提炼的核心知识的结构化呈现，是复习的基本单元</td></tr>
+  <tr><td><b>待确认</b></td><td>AI 判定为无阅读价值、等待用户裁决的内容状态</td></tr>
+  <tr><td><b>每日队列</b></td><td>当日到期、需要复习的卡片的有序集合</td></tr>
+  <tr><td><b>已巩固</b></td><td>完成全部复习间隔（R1）后的卡片终态，不再进入每日队列</td></tr>
+  <tr><td><b>原文快照</b></td><td>收集时保存的原始内容副本，用于原文失效后的溯源</td></tr>
+</table>
+</section>
+
+<!-- ============ 8 开放问题 ============ -->
+<section id="s8">
+<h2><span class="num">8</span>开放问题</h2>
+<table>
+  <tr><th>#</th><th>问题</th><th>影响</th><th>状态</th></tr>
+  <tr><td>1</td><td>复习提醒的最终渠道组合与时间策略（浏览器通知权限覆盖率有限）</td><td>FR-07 的召回效果</td><td><span class="tbd">TBD</span>，建议上线后依据打开率迭代</td></tr>
+  <tr><td>2</td><td>商业化模式与 AI 处理额度（免费额度 / 订阅）</td><td>AI 处理的重试与用量规则（R3）、判定成本</td><td><span class="tbd">TBD</span></td></tr>
+  <tr><td>3</td><td>艾宾浩斯间隔序列的最终数值（当前为 D0/1/3/7/14/30 假设值）</td><td>R1 全部复习节奏</td><td><span class="assume">[Assumption, TBD]</span>，建议以内测留存数据校准</td></tr>
+  <tr><td>4</td><td>记忆宫殿（P1）的具体交互形态：空间构建方式、卡片放置逻辑、漫游复习流程</td><td>P1 启动前的专项设计</td><td><span class="tbd">TBD</span></td></tr>
+  <tr><td>5</td><td>支持上传的文档格式清单</td><td>FR-01 的收集能力边界</td><td><span class="assume">[Assumption, TBD]</span></td></tr>
+</table>
+</section>
+
+<footer>
+  拾忆 · 产品需求文档 v1.1 · 2026-11-23 · 状态：待评审<br>
+  v1.1 修订：FR-02 新增「分析报告 · 产品入口体验」要求——分析判定为产品入口时刻，报告页为第一屏主角；判定有价值后自动生成卡片，无需用户二次确认（来自原型阶段评审共识）。<br>
+  文中标注 <span class="assume">[Assumption, TBD]</span> 的为待验证假设，标注 <span class="tbd">TBD</span> 的为待决策事项；两者均需在评审会上确认或关闭。
+</footer>
+</div>
+
+<script>
+/* ---------- 演示 A：收件箱 + AI 处理 + 确认 ---------- */
+function demoAReset(){
+  document.getElementById('demoA-screen').innerHTML =
+    '<span class="chip wait">收件箱 · 空闲</span><p class="mini" style="margin-top:8px;">点击上方按钮，模拟从浏览器右键收藏一条内容。</p>';
+}
+function demoA(kind){
+  const s = document.getElementById('demoA-screen');
+  const title = kind==='good' ? '深入浅出理解一致性哈希算法' : '震惊！99% 的人都不知道的效率神器';
+  const url = kind==='good' ? 'https://tech-blog.example.com/consistent-hashing'
+                            : 'https://mp.weixin.example.com/s/abc123';
+  s.innerHTML =
+    '<span class="chip proc">处理中</span> <b class="mini">'+title+'</b>'+
+    '<p class="mini" style="margin-top:6px;">来源：'+url+'<br>已保存原文快照，AI 正在判定价值与提取要点…</p>';
+  setTimeout(function(){
+    if(kind==='good'){
+      s.innerHTML =
+        '<span class="chip high">已转化 · 有阅读价值</span> <b>'+title+'</b>'+
+        '<div class="flashcard" style="margin-top:10px;">'+
+          '<div class="q">一致性哈希如何解决节点增减时的大规模数据迁移问题？</div>'+
+          '<div class="a">要点：① 哈希环将节点与数据映射到同一环上；② 节点变动只影响相邻区间的数据；③ 虚拟节点解决数据倾斜。'+
+          '<br><span class="mini">摘录：「仅 1/N 的数据需要迁移」 · 来源：'+url+'</span></div></div>'+
+        '<p class="mini" style="margin-top:8px;">✓ 卡片已生成，进入复习计划：今日 D0 → 1 天 → 3 天 → 7 天 → 14 天 → 30 天</p>'+
+        '<span class="toast">已加入收件箱 · 卡片已生成 ✓</span>';
+    }else{
+      s.innerHTML =
+        '<span class="chip low">判定：无阅读价值 → 待确认</span> <b>'+title+'</b>'+
+        '<p class="mini" style="margin-top:8px;"><b>AI 判定理由：</b>全文为营销软文，核心诉求是引导购买课程；缺乏可提炼的事实或方法，无阅读价值。</p>'+
+        '<p class="mini">内容类型标签：营销推广</p>'+
+        '<div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">'+
+          '<button class="danger" onclick="demoAConfirm(\'drop\')">丢弃</button>'+
+          '<button onclick="demoAConfirm(\'keep\')">强制保留（仍生成卡片）</button>'+
+        '</div><p class="hint">AI 不会自动删除任何内容——去留由你决定。</p>';
+    }
+  }, 1400);
+}
+function demoAConfirm(action){
+  const s = document.getElementById('demoA-screen');
+  if(action==='drop'){
+    s.innerHTML = '<span class="chip wait">已丢弃 · 进入回收站（30 天内可恢复）</span>'+
+      '<p class="mini" style="margin-top:8px;">该内容不会生成知识卡片，已从收件箱移除。</p>'+
+      '<span class="toast">已移入回收站 · 可随时恢复</span>';
+  }else{
+    s.innerHTML = '<span class="chip high">已转化（用户保留）</span>'+
+      '<p class="mini" style="margin-top:8px;">覆盖 AI 判定，已生成知识卡片并进入复习计划。你的保留决定将帮助 AI 优化后续判定。</p>'+
+      '<span class="toast">已生成卡片 ✓</span>';
+  }
+}
+
+/* ---------- 演示 B：每日复习 ---------- */
+const B_CARDS = [
+  {q:'一致性哈希如何解决节点增减时的大规模数据迁移问题？',
+   a:'① 哈希环将节点与数据映射到同一环；② 节点变动只影响相邻区间；③ 虚拟节点解决数据倾斜。仅 1/N 数据需迁移。',
+   stage:2, next:'+7 天'},
+  {q:'艾宾浩斯遗忘曲线对复习安排的核心启示是什么？',
+   a:'记忆衰减在最初最快，复习应集中在遗忘临界点前：1 天、3 天、7 天等递增间隔复习，用最少次数维持长期记忆。',
+   stage:0, next:'今天稍后'},
+  {q:'TCP 三次握手各自确认了什么？',
+   a:'① SYN：客户端确认自身收发能力正常；② SYN+ACK：服务端确认收发能力正常；③ ACK：客户端确认服务端收发能力正常，连接建立。',
+   stage:4, next:'+14 天'}
+];
+const B_STAGES = ['D0','D1','D3','D7','D14','D30'];
+let bIdx = 0, bDone = 0, bRunning = false;
+
+function demoBStart(){
+  bIdx = 0; bDone = 0; bRunning = true;
+  demoBRender();
+}
+function demoBRender(){
+  const s = document.getElementById('demoB-screen');
+  if(bIdx >= B_CARDS.length){
+    bRunning = false;
+    s.innerHTML = '<span class="chip high">今日复习完成 ✓</span>'+
+      '<p class="mini" style="margin-top:8px;">队列已清空。明天将按各卡片的新间隔继续出现。</p>'+
+      '<div style="margin-top:10px;"><button class="ghost" onclick="demoBStart()">再演示一轮</button></div>';
+    demoBStats(); return;
+  }
+  const c = B_CARDS[bIdx];
+  s.innerHTML =
+    '<div class="review-stats" style="margin:0 0 10px;">第 <b>'+(bIdx+1)+' / '+B_CARDS.length+'</b> 张 · 当前间隔 <b>'+B_STAGES[c.stage]+'</b></div>'+
+    '<div class="flashcard"><div class="q">'+c.q+'</div>'+
+      '<div class="a" id="bA" style="display:none;">'+c.a+'</div></div>'+
+    '<div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">'+
+      '<button class="ghost" id="bFlip" onclick="demoBFlip()">翻面核对</button>'+
+      '<button class="danger" id="f0" style="display:none;" onclick="demoBFeedback(0)">忘记</button>'+
+      '<button class="ghost" id="f1" style="display:none;" onclick="demoBFeedback(1)">模糊</button>'+
+      '<button id="f2" style="display:none;" onclick="demoBFeedback(2)">记住</button>'+
+    '</div><div id="bMsg" class="hint"></div>';
+  demoBStats();
+}
+function demoBFlip(){
+  document.getElementById('bA').style.display='block';
+  document.getElementById('bFlip').style.display='none';
+  ['f0','f1','f2'].forEach(function(id){document.getElementById(id).style.display='inline-block';});
+}
+function demoBFeedback(v){
+  const c = B_CARDS[bIdx], msg = document.getElementById('bMsg');
+  ['f0','f1','f2'].forEach(function(id){document.getElementById(id).disabled=true;});
+  let text;
+  if(v===0){ c.stage=0; text='「忘记」 → 回到 D0，今天稍后这张卡会再次出现。'; }
+  else if(v===1){ text='「模糊」 → 间隔保持 '+B_STAGES[c.stage]+'，下次复习时间顺延。'; }
+  else{
+    if(c.stage>=5){ text='「记住」 → 已完成 D30，卡片进入「已巩固」，永久退出每日队列。'; c.stage=6; }
+    else{ c.stage++; text='「记住」 → 进入下一间隔 '+B_STAGES[c.stage]+'。'; }
+  }
+  msg.innerHTML = '✓ '+text+' &nbsp;<button class="ghost" onclick="demoBNext()">下一张</button>';
+  bDone++;
+  demoBStats();
+}
+function demoBNext(){ bIdx++; demoBRender(); }
+function demoBStats(){
+  const el = document.getElementById('demoB-stats');
+  if(el) el.innerHTML = '<span>本轮反馈 <b>'+bDone+'</b> 次</span><span>队列剩余 <b>'+Math.max(0,B_CARDS.length-bIdx)+'</b> 张</span><span>复习状态跨端实时同步</span>';
+}
+</script>
+</body>
+</html>

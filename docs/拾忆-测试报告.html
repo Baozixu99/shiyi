@@ -1,0 +1,268 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>拾忆 · 测试报告与迭代记录 v1.0</title>
+<style>
+  :root{
+    --bg:#12100e; --panel:#1a1714; --panel2:#211d19; --border:#2e2822; --border-soft:#26211c;
+    --text:#efe6d8; --muted:#9c917f; --amber:#e8ac45; --steel:#8fb8de; --red:#e06c5f; --green:#7dbb7d;
+    --font-display:"Songti SC","Noto Serif SC",serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font:15px/1.75 "PingFang SC","Microsoft YaHei",sans-serif;padding:48px 20px}
+  .wrap{max-width:960px;margin:0 auto}
+  header{margin-bottom:36px}
+  .eyebrow{color:var(--amber);font-size:13px;letter-spacing:.2em;margin-bottom:8px}
+  h1{font-family:var(--font-display);font-size:34px;font-weight:700;margin-bottom:10px}
+  .sub{color:var(--muted);font-size:14px}
+  h2{font-family:var(--font-display);font-size:22px;margin:44px 0 16px;padding-top:18px;border-top:1px solid var(--border-soft)}
+  h2 b{color:var(--amber)}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin:14px 0}
+  th{color:var(--muted);font-weight:600;text-align:left;padding:10px 12px;border-bottom:1px solid var(--border);font-size:13px}
+  td{padding:11px 12px;border-bottom:1px solid var(--border-soft);vertical-align:top}
+  .pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;white-space:nowrap}
+  .ok{background:rgba(125,187,125,.14);color:var(--green)}
+  .fix{background:rgba(232,172,69,.14);color:var(--amber)}
+  .block{background:rgba(224,108,95,.14);color:var(--red)}
+  .card{background:var(--panel);border:1px solid var(--border-soft);border-radius:12px;padding:18px 20px;margin:14px 0}
+  .card h3{font-size:15px;margin-bottom:8px}
+  .card h3 .pill{margin-left:8px;vertical-align:2px}
+  .card p{color:var(--muted);font-size:14px}
+  code{background:var(--panel2);border:1px solid var(--border-soft);border-radius:6px;padding:1px 7px;font-size:13px;color:var(--steel)}
+  ul{padding-left:22px;color:var(--muted);font-size:14px}
+  ul b{color:var(--text)}
+  .kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:20px 0}
+  .kpi div{background:var(--panel);border:1px solid var(--border-soft);border-radius:12px;padding:16px;text-align:center}
+  .kpi b{display:block;font-size:28px;font-family:var(--font-display);color:var(--amber)}
+  .kpi span{font-size:12px;color:var(--muted)}
+  footer{margin-top:48px;color:var(--muted);font-size:12px;border-top:1px solid var(--border-soft);padding-top:16px}
+  @media (max-width:700px){.kpi{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">SHIYI · QA REPORT</div>
+  <h1>拾忆 · 测试报告与迭代记录</h1>
+  <div class="sub">高保真原型 v1.0 → v1.0.1 ｜ 2026-11-23 ｜ 测试对象：app/（纯静态 vanilla SPA）</div>
+</header>
+
+<div class="kpi">
+  <div><b>27</b><span>执行用例</span></div>
+  <div><b>22</b><span>一次通过</span></div>
+  <div><b>4</b><span>发现缺陷并修复</span></div>
+  <div><b>1</b><span>遗留项（环境受限）</span></div>
+</div>
+
+<h2><b>01</b> · 测试结论</h2>
+<p class="sub">核心用户旅程（丢入 → AI 分析 → 报告裁决 → 卡片 → 复习）全部走通；发现的 4 个缺陷已修复并通过静态回归。浏览会话后期因浏览器环境持续故障（viewport 无法就绪），修复项的运行时回归与移动端实测未能完成，已降级为逐行静态验证，列为遗留项 R1。</p>
+
+<h2><b>02</b> · 分模块用例结果</h2>
+
+<table>
+  <tr><th>模块</th><th>用例</th><th>结果</th><th>证据摘要</th></tr>
+  <tr><td>收件箱</td><td>6 条 mock 数据渲染、状态标签（已转化/待确认/待重试/抓取受限/AI 分析中）</td><td><span class="pill ok">PASS</span></td><td>6 条全部渲染，标签与状态机一致</td></tr>
+  <tr><td>自动演示</td><td>boot 2.2s 内 cap-06 四步分析动效 → 自动跳转报告页</td><td><span class="pill ok">PASS</span></td><td>步骤依次点亮，URL 变为 #/report/cap-06</td></tr>
+  <tr><td>导航</td><td>5 个导航项切换 + 待确认/今日复习徽标数字</td><td><span class="pill ok">PASS</span></td><td>各视图渲染无空白，控制台零报错</td></tr>
+  <tr><td>丢入内容</td><td>弹窗三标签页（链接/文本/图片文档）、文件选择模拟</td><td><span class="pill ok">PASS</span></td><td>tab 切换正常，dropzone 选中 PDF 后可提交</td></tr>
+  <tr><td>高价值链接</td><td>提交普通链接 → 分析中 → 已转化 · 值得读 → 跳转报告</td><td><span class="pill ok">PASS</span></td><td>toast「已加入收件箱 · AI 开始分析」，卡片数 5→6</td></tr>
+  <tr><td>低价值链接</td><td>提交 weixin.qq.com 链接 → 待确认 · 营销推广</td><td><span class="pill ok">PASS</span></td><td>报告页「不建议读」徽章 + 判定理由，徽标 1→2</td></tr>
+  <tr><td>报告页</td><td>快照溯源入口、重新分析按钮</td><td><span class="pill fix">D1→已修复</span></td><td>原版「快照已留存」为纯文本且无重试入口</td></tr>
+  <tr><td>待确认页</td><td>勾选、全选/取消全选、批量操作栏</td><td><span class="pill ok">PASS</span></td><td>已选 X/Y 计数正确</td></tr>
+  <tr><td>批量丢弃</td><td>3 秒二次确认窗口、确认后丢弃 + 徽标减少</td><td><span class="pill ok">PASS</span></td><td>toast 引导再次点击，超时需重触发</td></tr>
+  <tr><td>单条丢弃</td><td>二次确认（原设计仅批量有）</td><td><span class="pill fix">D4→已补齐</span></td><td>现在与批量共用同一确认机制</td></tr>
+  <tr><td>卡片库</td><td>5 个筛选 chips 过滤、搜索「哈希」、清空恢复</td><td><span class="pill ok">PASS</span></td><td>各筛选计数正确，搜索命中唯一卡片</td></tr>
+  <tr><td>卡片弹窗</td><td>打开、编辑→保存（库内同步更新、进度不变）</td><td><span class="pill ok">PASS</span></td><td>toast「卡片已保存 · 复习进度不变」</td></tr>
+  <tr><td>卡片弹窗</td><td>生成公开链接 / 关闭分享</td><td><span class="pill fix">D3→已修复</span></td><td>原链接截断为 s/ard-01，现为 s/c01</td></tr>
+  <tr><td>卡片弹窗</td><td>归档 / 恢复、删除双击确认</td><td><span class="pill fix">D2→已修复</span></td><td>原按钮缺 data-id 点击报 TypeError，现正常</td></tr>
+  <tr><td>卡片弹窗</td><td>重新提炼（busy 态 + 要点更新）</td><td><span class="pill ok">PASS</span></td><td>第 4 条要点更新为补充内容</td></tr>
+  <tr><td>复习</td><td>翻面核对、记住→下一张、忘记→回 D0 重新入队、模糊→保持</td><td><span class="pill ok">PASS</span></td><td>记住实测推进 1/5→2/5→3/5；忘记/模糊经静态验证（R1 规则实现正确）</td></tr>
+  <tr><td>复习</td><td>完成页统计（复习 N 张 / 忘记回到 D0 M 张）+ 再演示一轮 + 徽标归零</td><td><span class="pill ok">PASS</span></td><td>静态验证：r.done/r.forgot 统计正确，due 全清后徽标消失</td></tr>
+  <tr><td>记忆宫殿</td><td>P1 占位页、房间列表、去卡片库引导</td><td><span class="pill ok">PASS</span></td><td>书房/客厅/通勤路线 teaser 正常</td></tr>
+  <tr><td>响应式</td><td>≤820px：侧栏转顶栏、导航横滑、网格单列、反馈按钮纵排</td><td><span class="pill block">R1 遗留</span></td><td>媒体查询规则完备（styles.css L454-481），运行时实测因浏览器故障未完成</td></tr>
+</table>
+
+<h2><b>03</b> · 缺陷清单与修复</h2>
+
+<div class="card">
+  <h3>D1 · 报告页缺少原文快照溯源入口 <span class="pill fix">已修复</span></h3>
+  <p>现象：「快照已留存」只是纯文本，ACTIONS 里的 <code>openSnapshot</code> 处理器从未被任何模板引用；且对 <code>snapshot:false</code> 的条目（抓取受限）文案失实。</p>
+  <p>修复：<a href="file:///d:/Documents/Trae-CN/shiyi/app/app.js#L397-L400" style="color:var(--steel)">app.js renderReport()</a> — snapshot 为 true 时渲染可点击的「原文快照已留存 · 点击溯源」link-btn；为 false 时显示「快照未留存」。</p>
+</div>
+
+<div class="card">
+  <h3>D2 · 卡片弹窗「归档 / 删除」点击崩溃 <span class="pill fix">已修复 · 严重</span></h3>
+  <p>现象：点击后控制台 <code>Uncaught TypeError: Cannot read properties of undefined (reading 'status')</code>。根因：弹窗底部按钮未携带 <code>data-id</code>，事件委托传给 <code>DB.cardById(undefined)</code>。归档、恢复、删除三条路径全部不可用。</p>
+  <p>修复：<a href="file:///d:/Documents/Trae-CN/shiyi/app/app.js#L548-L549" style="color:var(--steel)">app.js renderCardModalBody()</a> — 归档与删除按钮补上 <code>data-id</code>。编辑/分享/重新提炼因使用模块级 <code>modalCardId</code> 本就正常。</p>
+</div>
+
+<div class="card">
+  <h3>D3 · 分享链接 ID 截断 <span class="pill fix">已修复</span></h3>
+  <p>现象：<code>c.id.slice(-6)</code> 把 <code>card-01</code> 截成 <code>ard-01</code>。</p>
+  <p>修复：<a href="file:///d:/Documents/Trae-CN/shiyi/app/app.js#L521" style="color:var(--steel)">app.js L521</a> — 改为 <code>c.id.replace(/^card-/, 'c')</code>，链接变为 <code>https://shiyi.app/s/c01</code>。</p>
+</div>
+
+<div class="card">
+  <h3>D4 · 单条丢弃缺少二次确认 <span class="pill fix">已补齐</span></h3>
+  <p>现象：批量丢弃有 3 秒确认窗口，单条「丢弃」却是瞬时执行，交互不一致且误触成本高（虽有 30 天回收站兜底）。</p>
+  <p>修复：<a href="file:///d:/Documents/Trae-CN/shiyi/app/app.js#L458-L459" style="color:var(--steel)">app.js decideFlow()</a> — 单条丢弃复用 <code>confirmDrop(1)</code>，确认 toast 文案改为通用「3 秒内再次点击『丢弃』确认」。</p>
+</div>
+
+<h2><b>04</b> · 迭代记录（changelog）</h2>
+<ul>
+  <li><b>v1.6.2 → v1.6.3（文案 · 目标输入占位精简）</b>：首页目标行占位文案缩短为「我想知道什么？（可留空）」，去掉机制解释（说明已在报告首屏的目标结论卡中体现）。构建号 v1.6.3，部署 <code>dep_6b065696fb44736ed30fa8bf</code>。</li>
+  <li><b>v1.6.1 → v1.6.2（样式 · 输入区简洁化）</b>：用户反馈输入框样式需要更简洁。「我想知道什么」目标行从独立虚线小框改为主输入框下方的一条静音分隔线（无边框无底色，仅 icon + 占位文字，聚焦时 icon 点亮）；hero 内距与行高收紧（textarea 80→68px）、标题行间距减半——整个输入区收敛为单一容器，不再有嵌套边框感。验证：截图确认布局收敛，控制台零报错。部署 <code>dep_6b06527af022733cd04fe831</code>，构建号同步 v1.6.2。</li>
+  <li><b>v1.6.0 → v1.6.1（打磨 · 打字机引导 + 记忆宫殿交互预览）</b>：落实 v1.4.4 时提出的两个可选项。
+    <ul>
+      <li><b>hero 打字机引导</b>（app.js HERO_HINTS/startHeroTyper）：输入区为空时，提示行以打字机节奏（58ms/字，停 2.6s）循环 4 条引导语（公众号链接 / 课堂笔记 / 「我想知道什么」 / 通知提取），带琥珀光标闪烁；用户一旦输入、选文件或进入补录态立即停止并切回识别提示；含防重入序号锁；<code>prefers-reduced-motion</code> 时静态显示不打字。验证：8 秒采样可见短语 1→2→3 按「打字-停顿」节奏推进，控制台零报错。</li>
+      <li><b>记忆宫殿交互式预览</b>（app.js renderPalace 重写 + palaceRoom 动作）：占位页升级为用<b>真实卡片数据</b>生成的房间分布预览——书房/客厅/通勤路线/工作台四个房间按卡片标签分配（未匹配进工作台），房间块显示卡片数；点房间切换下方「漫步{房间}」面板列出该房间的真实卡片与阶段 pill，点卡片直接打开详情弹窗；保留「P1 即将上线，结果回写规则 R1」的说明。验证：14 张卡全部分配（书房3/客厅7/通勤3/工作台1），切换房间面板联动，点卡开弹窗正常。</li>
+      <li>构建号同步更新为 v1.6.1（实验室展示）。部署 <code>dep_6b064e73c9bd5c30cd5ec639</code>。</li>
+    </ul>
+  </li>
+  <li><b>v1.5.0 → v1.6.0（产品特性 · 首页目标结论 + 通知行动信息）</b>：落实第二轮复测的产品优化建议①与②。
+    <ul>
+      <li><b>特性① 首页目标结论</b>（app.js heroHTML/submitHeroFlow/renderReport/goalConclusionHTML + api.js analyzeCapture）：首页丢入区新增选填输入「我想知道什么？（可留空）」；有目标时分析链在「通读全文」阶段<b>并行</b>跑 V4 目标核对（与 V1 卡片提炼同 await，不增加总时长），结果存 <code>cap.v4</code>。报告首屏在步骤条之前插入「目标结论」卡（钢蓝区分色）：顶部「正在核对：{目标}」；<code>lead</code>（模型对目标的直接回应）永远展示——包括「原文没提」的诚实回答；仅 verdict 为 read_full/read_parts 时才把首条要点作为大字答案 + 「看XX」原文入口（复用 openSnapshotView 定位高亮）。skim/skip/insufficient 以 lead 为准，避免答非所问的大字答案。验证：「正好 90 厘米应走哪个门」→ 答案「展板写明：正好90厘米的观众从东门入馆」+ 看东门规则落点 b1 句级高亮；「押金是多少」（原文没提）→ lead「完全没有提及押金，因此无法回答你的问题」且不出误导性答案。</li>
+      <li><b>特性② 通知行动信息</b>（api.js AI_SYSTEM_PROMPT/parseScenario + app.js statusChip/captureCard/renderConfirm/renderReport）：V1 提示词新增一次性通知识别——value="not"、contentType="一次性通知"、额外输出 <code>action</code> 字段（≤30 字，保留具体时间与地点）。收件箱卡与待确认列表：chip 改为「扫一眼即可」，首屏直接展示行动信息框（如「周四上午十点社团答辩改到一教502签到」），副标「默认不加入复习」；报告页对应「扫一眼即可」分支（行动信息 + 判定理由 + 保留/丢弃）。通知默认进待确认、不生成卡、不加复习——符合「收到通知后无需打开报告也能走到正确地点」。验证：本地+线上场地通知样本，时间地点完整提取，due 数零增量。</li>
+      <li>回归：无目标提交走原 V1 链路不受影响；失败/受限/补录路径不受影响。部署 <code>dep_6b05a5efd416e5eb3d6f0760</code>，控制台零报错。</li>
+    </ul>
+  </li>
+  <li><b>v1.4.6 → v1.5.0（第二轮复测修复 · R2-01~06）</b>：按《05-拾忆-第二轮线上复测与优化建议》逐项修复。构建版本号在实验室展示（<code>APP_VERSION=v1.5.0</code>）。
+    <ul>
+      <li><b>R2-01 · P0 双标签覆盖</b>（mock.js 持久化层重写）：旧实现整库 last-writer-wins——两个标签都开着首页时，后保存的标签用旧快照覆盖另一标签刚写入的收藏/卡片。新持久化：每次 <code>DB.save()</code> 前与存储做<b>按条目三方合并</b>（上次同步快照 vs 存储 vs 内存）——本标签改过的条目用本标签版本；本标签没动、存储里被别的标签改过的条目用存储版本（跨标签评分不再回退）；快照有而内存无 = 本标签已删除（保持删除）；仅存储有的新条目 = 其他标签新建（并入并重渲染，<code>storage</code> 事件监听实时同步）。<code>nextId()</code> 分配前先同步存储中的全局计数器，两标签不再分出同一 ID。<b>验证</b>：本地+线上双标签 A→B、B 旧内存新建第三条 + A 评分三种交错，两份收藏/卡片/评分全部保住（线上 A=cap-107 灰鲸、B=cap-109 银杏，A 刷新后收件箱两条都在，due+2）；同页双击仍只 +1。</li>
+      <li><b>R2-02 · 60 字门槛误杀</b>（api.js analyzeCapture）：区分「没拿到正文」与「短文可判断」——主动粘贴/补录的正文下限降为 12 字并交给模型判断（保留原文与快照，报告不再误写「快照未留存」）；链接抓取仍按 60 字门槛。验证：57 字金穗流程 → analyzed + 快照留存 + 卡片；38 字广告 → 不推荐阅读进待确认。</li>
+      <li><b>R2-03 · 补正文失去来源</b>（app.js replenish 流程 + analyzeCapture）：失败/受限报告与收件箱的补正文按钮改为「附到原收藏」模式——hero 进入补录态（提示为哪条收藏补录、可取消），提交的正文写入原 <code>cap.raw</code> 并标记 <code>replenished</code>，分析直接用补录文本不再重复抓取；收件箱与报告显示「用户补充正文」chip。验证：无效链接 cap-110 补录后同地址 analyzed + 卡生成，收件箱仍只占一条。</li>
+      <li><b>R2-04 · 数字与限定词</b>：① V1 提示词新增红线（「数字＋单位＋对象＋观察周期/限定词」绑定原句，拿不准少写一条）；② 机械拦截 <code>numbersBound()</code>——要点/标题中每个阿拉伯数字必须能在原文逐字找到，否则剔除该要点（允许少生成）或标题退回材料标题。验证：金穗卡 4 条要点数字全绑定；单元探针「0.68→只写0.68」类篡改可拦。说明：中文数字改写（两个雨天→两周）无法机械识别，由提示词红线约束、验收按含义。</li>
+      <li><b>R2-05 · 编辑后旧结果归属</b>（app.js lab）：结果保存 <code>inputKey</code>（材料+目标签名）与 <code>goalPreview</code>；结果 meta 常驻展示原目标；编辑材料或目标的每一次输入立即出现「输入已修改 · 下方结果属于上次提交（原目标：…）」横幅，撤回修改自动消失。验证：改目标→横幅出现、撤回→消失、meta 显示原目标。</li>
+      <li><b>R2-06 · 复习轮次刷新清零</b>（app.js）：本轮进度（队列/位置/作答数/完成数/忘记数）随写随存 <code>shiyi-review-v1</code>；刷新或重开自动续接同一轮（「已续接上次进度」标识、翻面复位）；忘记的队尾重练卡随队列持久化；完成时清除存档；队列中被删卡片自动跳过。验证：「记住」→ 刷新 → 已完成1/7·作答1·续接；「忘记」重练 → 刷新 → 队列 8 条含重练卡。</li>
+      <li>本地与线上回归均通过、控制台零报错。部署 <code>dep_6b05a05b8c230b6b30f2f05f</code>。产品优化建议①（首页目标结论）与②（通知行动信息）为较大产品特性，本轮未实施，建议单独排期。</li>
+    </ul>
+  </li>
+  <li><b>v1.4.5 → v1.4.6（修复 · 光泽残影 + 暖色校正）</b>：用户反馈「鼠标移到这张卡时，上面的框框也会有特效」且「特效不够暖、与主题不匹配」。
+    <ul>
+      <li><b>残影根因</b>：光泽层 <code>::after</code> 双向过渡——鼠标从上一张卡移出时，扫光会以 0.9s 过渡慢慢扫回去，此刻鼠标已落在下一张卡上，视觉上就是「上面的框也在播放特效」。修复：默认 <code>transition:none</code>（移出立即复位，只进不出），仅 hover 进入时带 0.65s 扫入过渡。已验证两卡 ::after 初始均在屏外（-889px）且默认 transition=0s。</li>
+      <li><b>暖色校正（回归琥珀主题）</b>：悬停描边由中性灰改为琥珀（.card/.ov-card/.report-card/.lab-col hover）；导航 hover 底色改琥珀 tint；hero 提示图标与「查看收件箱」链接由钢蓝改琥珀；极光暖珠增强（.32→.38）、冷珠减弱（.28→.18）；暗角由纯黑改暖黑；光泽渐变整体换成暖琥珀（235,185,100 / 232,172,69）；标题渐变对比微调（14s）。</li>
+      <li>部署 <code>dep_6b05819446c767d5d381de82</code>，本地计算样式全部验证通过，控制台零报错。</li>
+    </ul>
+  </li>
+  <li><b>v1.4.4 → v1.4.5（修复 · 聚焦双框串扰 + 整体降噪 + 输入入口重设计）</b>：用户反馈三点——①鼠标放左边框上会触发右边框特效、②效果晃眼、③输入入口丑。
+    <ul>
+      <li><b>根因修复（双框串扰）</b>：textarea 点击聚焦时，v1.4.4 无障碍规则给输入类控件加了 2px 琥珀外圈 outline，同时 hero 容器 <code>:focus-within</code> 又点亮自身辉光——两层同时亮，看起来像「触发另一个框的特效」+ 大亮框晃眼。修复：<code>input/textarea:focus-visible{outline:none}</code>（焦点指示交给容器辉光 + 边框变色 + 光标），键盘/按钮类 outline 保留。</li>
+      <li><b>整体降噪</b>：极光透明度 .55/.5→.32/.28；卡片光泽高光减半并缩短时长（.9s→.7s）；按钮流光 .16→.09；logo 流光环 .65→.4；标题渐变扫过 8s→16s 且对比降低；kcard hover 辉光与主按钮阴影减弱。</li>
+      <li><b>输入入口重设计（安静命令栏）</b>：去掉常驻琥珀描边与大辉光，改为中性暗面底 + 顶部 1px 细光带（hover/聚焦渐显）；聚焦态只保留柔和边框变色 + 低辉光；徽章、副标、按钮字号与留白整体收紧。</li>
+      <li>验证：聚焦 textarea 时 outline=none、hero 静音底色、极光 .32；两个概览卡 ::after 初始均在屏外且互相独立（-434px，各自 :hover 驱动，无跨元素触发机制）；控制台零报错。部署 <code>dep_6b05611af59bcc5a538c44aa</code>。</li>
+    </ul>
+  </li>
+  <li><b>v1.4.3 → v1.4.4（视觉升级 · 「深夜书房 2.0」，参考 recent.design 级设计语言）</b>：用户反馈页面"仅达基础水平、不够专业高级"，参考 recent.design 画廊的设计语言做纯 CSS 高级感改造（零依赖、零逻辑改动、功能与无障碍行为不变）：
+    <ul>
+      <li><b>氛围层</b>：琥珀/钢蓝双极光低速漂移（38s/46s，blur 90px）、SVG feTurbulence 胶片噪点覆盖（opacity .05，步进抖动）、径向暗角收拢视线——三层 fixed 装饰层（aria-hidden，pointer-events:none），移动端自动降模糊。</li>
+      <li><b>排版</b>：页面标题改琥珀流光渐变文字（background-clip:text，8s 周期扫过，@supports 降级纯色）；报告/复习/弹窗标题加大并 clamp 流式；logo 副标改等宽字距。</li>
+      <li><b>材质</b>：卡片（收藏卡/概览卡/裁决卡/实验室栏/知识卡）悬停光泽斜扫（amber sheen sweep）、琥珀色立体分层阴影、知识卡封面图 hover 缓慢放大、到期卡描边增强。</li>
+      <li><b>微交互</b>：按钮内流光扫过 + 按压缩放；主导航左侧琥珀滑轨指示条（hover 生长、active 常驻）+ 右移微动；链接按钮下划线从右往左滑入；顶栏铃铛 hover 摇铃；筛选 chip 上浮；自定义琥珀滚动条。</li>
+      <li><b>动效编排</b>：路由切换 view 转场（上浮+微缩+模糊→清晰，同视图刷新不重播）；复习翻面改 3D rotateX 翻牌入场（perspective 900px）；弹窗 modalIn 缩放入场；首页最近收藏与收件箱列表阶梯延迟（0.05s 步进）；概览数字弹入；logo 外圈琥珀/钢蓝 conic 流光环（9s 旋转）。</li>
+      <li><b>无障碍</b>：全部新增动效纳入 prefers-reduced-motion 降级（动画/过渡停用、装饰层隐藏）；本地+线上实测：氛围层运行（driftA）、渐变标题生效、翻面动画入场归位正常、卡片库/主页无横向溢出、控制台零报错。部署 <code>dep_6b055b90643df017c4fafdbe</code>。</li>
+    </ul>
+  </li>
+  <li><b>v1.4.2 → v1.4.3（迭代 · 付费墙映射抓取受限 + 种子调整）</b>：
+    <ul>
+      <li><b>真实付费墙 → 「抓取受限」态</b>（api.js analyzeCapture + app.js 报告视图/toast）：服务端 /api/fetch 返回 HTTP 401/402/403（页面需要登录或付费）时，收藏落入 <code>restricted</code> 态——收件箱显示锁形「抓取受限」chip 与「选中正文文字再收藏」入口，报告页新增「抓取受限」分支（保留提交的链接、给「打开原链接 / 选中正文文字再收藏」、明示卡片与到期数零增量），不再落入通用的「处理失败」。404/500/DNS 失败等仍为「处理失败」。离线仿真验证：401/402/403→restricted、404/500/dns→failed、卡片与到期数全部零增量；本地+线上端到端实测（知乎问题页真实返回 403）：报告徽标「抓取受限 · 需要登录或付费」，cards/due 恒定。</li>
+      <li><b>演示种子调整</b>（mock.js）：按用户意见移除「抓取失败」示例（旧 cap-04 扫描版 PDF 解析失败），替换为一篇被 AI 检测为「不推荐阅读」的没营养文章示例（AI 水文 · 待确认，判定理由展示完整）；「抓取受限」示例保留——其状态现在与真实付费墙行为一致。新用户存档：失败种子 0、待确认示例 2、受限示例 1。</li>
+      <li>部署 <code>dep_6b053d86513ba4877eec60ff</code>。说明：用户旧浏览器存档不受种子变更影响（种子仅在无存档的新用户首次访问时初始化）。</li>
+    </ul>
+  </li>
+  <li><b>v1.4.1 → v1.4.2（迭代 · 卡片库封面随机分配）</b>：卡片库不再出现无封面的占位图标——无封面卡按卡 ID 稳定随机分配一张封面（同一张卡刷新后恒定不变），图池由 3 张扩至 8 张（新增迷宫、星座、齿轮、数据波、书房灯影 5 张同风格主题封面，assets/cover-*.jpg）；已有封面的种子卡保持原图不动。本地+线上实测：15/15、10/10 张卡全部渲染 <code>&lt;img&gt;</code> 且加载成功（naturalWidth&gt;0），刷新后卡↔封面映射完全一致，占位符 0 个。部署 <code>dep_6b053b58d5b7a0ec9e6f2a06</code>。</li>
+  <li><b>v1.4.0 → v1.4.1（迭代 · AI 分析动画 + 移动端适配）</b>：
+    <ul>
+      <li><b>分析过程动画</b>（styles.css + app.js processSteps）：① 步进条升级为「live」态——当前步脉冲辉光、完成步对勾弹入、新增 3px 进度扫描条（按 step/4 递进 + 高光扫过动画），收件箱处理卡与报告等待态共用；② 处理中收藏卡新增呼吸辉光描边（capGlow）；③ 报告「AI 正在分析这条内容…」文字后新增三点跳动思考动画（think-dots）；④ 提交/对比按钮忙碌态增加琥珀脉冲圈（btnPulse），且分析期间 render 重建后按钮保持忙碌（disabled+busy）；⑤ 全部动画尊重 <code>prefers-reduced-motion</code>（reduce 时停用）。本地+线上实测：处理中 <code>capGlow</code> 运行、进度条 25%→50% 递进、思考点跳动；完成后 <code>.steps.live/.verdict.pending</code> 无残留，控制台零报错。</li>
+      <li><b>移动端适配增补</b>（styles.css ≤820px / ≤420px 两档）：顶栏与侧栏压缩为单行图标导航（logo 缩小、导航间距收紧，390px 可容纳）；报告页返回钮改常规流、标题 20px；复习闪卡 min-height 300px、内边距收紧、题面 19px；收藏卡标题改两行截断（原单行省略）；封面 60px、待确认卡换行、批量栏换行；弹窗 96vw + 底部按钮组换行；实验室多行输入最小高 88px、单列布局；小屏（≤420px）概览卡/按钮/评分区进一步紧凑。960px 桌面回归无横向溢出（卡片库/实验室/复习页），样式静态校验通过（本环境视口固定，窄屏为 CSS 层验证，口径同前）。</li>
+      <li>部署 <code>dep_6b05387b4014207d9ae66d0f</code>，线上 https://37ljkvjqby7ib89amxv.traesite.cn 已生效。</li>
+    </ul>
+  </li>
+  <li><b>v1.3.0 → v1.4.0（交接工单修复 · 01–16 全项）</b>：按《04-拾忆-线上功能测试与修复清单》修复 2 项 P0、8 项 P1、6 项 P2，已重部署线上并完成端到端回归。
+    <ul>
+      <li><b>P0</b>：① <b>持久化</b>（mock.js）——DB 整体序列化进 <code>localStorage(shiyi-db-v1)</code>，captures/cards/profile/ID 计数器全部随存档恢复；仅无存档的新用户初始化演示种子（cap-06 定格为已完成，卡 card-09）；报告地址、改名卡、复习间隔、归档状态刷新/重开均保持，新 ID 单调不复用。② <b>失败不入库</b>（api.js analyzeCapture）——移除 canned 演示兜底：抓取失败/正文不足 60 字/模型失败 → status=failed + 具体原因，保留用户链接，报告页给「重试 / 打开原链接 / 粘贴正文重新分析」，卡片与到期数增量恒为 0；「不建议读」允许空要点（此前会解析失败落入演示剧本）。</li>
+      <li><b>P1</b>：③ 无标题文本标题=首行（链接=域名占位，分析后取抓取到的页面标题；server.js 新增 msg_title/og:title 回退，微信文章标题不再丢失）；模型收到的标题与正文来自同一次提交；④ 提交防重——S.submitting 状态锁 + 按钮禁用，双击/连按/Enter 复用只创建一个任务；⑤ 移除 boot 自动演示，首访停留在用户页面；⑥ 摘录逐字校验 <code>verifyExcerpt()</code>——未命中快照即降级标注「摘要 · 非逐字原文」（保留「比如/约/最快/预测」限定词），实验室 V1 同样标注；⑦ 卡片「原文溯源」真实打开对应材料快照并定位摘录所在段，链接卡开原链，无来源明确提示；⑧ 复习每次换卡重置 flipped，新卡只显题面；⑨ 收件箱底部新增「回收站（30 天内可恢复）」，恢复回原状态并保留原判定；⑩ 实验室改多行 textarea，粘贴文本按真实换行分段（空段剔除，emoji/短行保留），推荐落点命中含答案段落。</li>
+      <li><b>P2</b>：⑪ 复习统计分离——「已完成 X / N 张 · 作答 Y 次」，重练卡不膨胀分母，完成页「本轮共 N 张 · 作答 Y 次」；⑫ AI 判定与用户决定分层展示（原判定与理由可追溯），报告卡片头按当前状态显示参与/暂停复习；⑬ 搜索覆盖标题+要点+摘录+标签+关联快照原文；⑭ 实验室结果绑定本次提交（开跑即显示「新请求进行中」，旧结果折叠为「上次结果 · {输入}」，meta 标「本轮/上次提交」）；⑮ 快照弹窗叉号中心/遮罩点击、Esc 均可关闭，焦点进弹窗、Tab 圈内循环、关闭后回归触发点，关闭钮加 aria-label；⑯ 导航改真实锚点（Tab 可达 + aria-current），窄屏文字改 clip 隐藏保留辅助树名称，新增 :focus-visible 焦点样式。</li>
+      <li><b>线上回归（37ljkvjqby7ib89amxv.traesite.cn）</b>：A 材料 → 强制保留 → 改名「QA线上-已改名-修补记录」→ 复习 D0→D1 → 刷新重开全部找回；E 营销文独立失败不入库；无效链接 failed、无新增卡；实验室公众号「看预测原话」命中 b39 完整高亮（Jakub 预测：最快在 2027 年…）；搜索原文短语/改名卡均命中；键盘 Tab 七项导航可达、Enter 切页。本地另验：双击只建一条、快照叉号/Esc 关闭、B 标题=首行全程无示例标题串用。</li>
+    </ul>
+  </li>
+  <li><b>v1.2.3 → v1.2.4（迭代 · goal 驱动选段 + 可带走要点 + 核对问题）</b>：按用户四点规格升级 V4。① 选段原则通用化——goal 非空围绕目标选段（核对性提问优先展示能回答的原话位置），goal 为空按「是什么 → 核心主张或做法 → 局限与证据」最小理解路径选段，每个推荐位必须新增一条有用信息；② gist 一律写成可直接带走的结论（含具体事实/条件/数字），禁用阅读指引式措辞，保留归属与限定（文中举例 0.68、据文章转述 Jakub 预测最快 2027、比较级限定对象）；③ 新增 <code>question</code> 字段——快照弹窗顶部显示「正在核对：{问题}」替代入口名；清单类落点=第一项开头句 + endBlockId 成组淡金侧线 + 各项「短标题：」展示层加粗；④ 段号按视图显隐（实验室保留排查、主链路快照 no-ids 弱化）；⑤ quote 空白容忍匹配（模型短引偶尔丢空格）+ quote 必填约束；落点策略分级：blockId 有效即段级定位，quote 命中追加句级高亮，quote 提供但不匹配才通用降级。
+    <ul>
+      <li><b>验收① 公众号文章 · 目标留空</b>：lead「建议选读困惑度定义、2027 预测与通用指标提议，快速抓住核心争论」；三要点全部精准落点——看困惑度定义（b25，定义句高亮）、看2027预测原话（b39，mark「Jakub 预测： 最快在 2027 年，我们将看到基础预训练进展的『雪崩式爆发』！」，含人物/时间/预测）、看通用指标提议（b48–b50，mark「他们呼吁所有前沿模型开发者联合承诺：把『困惑度』作为全行业的通用指标。」，gist 保留「例如0.68」举例性质）。点击快照顶部即显示「正在核对：2027 年的预测原文怎么说？」。</li>
+      <li><b>验收② 公众号文章 · goal「想核对标题里 2027 年的预测是谁说的」</b>：模型收敛为单入口——lead「核对 2027 预测看 b39：文章归给 Jakub Pachocki，文末附 OpenAI 链接」，按钮「看预测原话」，点击后 b39 句级高亮完整预测原话，顶部「正在核对：2027 年雪崩预测原文怎么说？」。</li>
+      <li><b>验收③ 不同结构（粘贴六步方法论短文 · goal「想照着做」）</b>：verdict=通读全文，三条要点均为可执行规则收获（场景触发 / 每日 15 张限量 / 每周抽查 60% 阈值），quote 全部逐字命中（如「随机抽 10 张上周的卡，统计记住率低于 60% 就说明间隔太长」），点击后顶部「正在核对：记住率多低要调整间隔？」并定位高亮。</li>
+      <li>验收口径逐条通过：只读首屏能说出具体收获（gist 全为结论句）；点开入口第一屏原文直接支撑该句（quote 命中 + 靠上定位）；清单范围成组可辨认。V1 对照基线未动。</li>
+    </ul>
+  </li>
+  <li><b>v1.2.2 → v1.2.3（迭代 · 落点句精准定位 + 快照弹窗重做）</b>：用户提出「点开先看哪句」与「推荐读哪些段」必须区分，点开第一眼的高亮正文要能直接回答按钮上的问题。实现：
+    <ul>
+      <li><b>V4 提示词升级</b>：每条要点新增 <code>quote</code> 落点句字段（15-40 字逐字连续短引）——优先选给出定义/依据/方案/做法的正文，禁选过渡句；按钮承诺清单时落点选第一项开头句、endBlockId 延伸到末项；gist 新增限定规则（比较级写明对象、「比如 0.68」保留举例含义、作者称不得升级为已证实）。</li>
+      <li><b>落点解析与降级</b>（<code>resolveLanding()</code>）：blockId 存在且 quote 能在该段逐字命中才算精准落点；无效 ID / 引文不匹配 / 旧数据 → 按钮降级为「查看原文快照」通用入口，不用不相关段落冒充。</li>
+      <li><b>快照弹窗重做</b>：顶部显示「来自入口：{按钮名}」；落点句以 <code>&lt;mark&gt;</code> 句级高亮（非整段）；推荐范围 b63–b66 等成组淡金标记；目标滚动到阅读区靠上（offsetTop-24，保留上方少量上下文）；弹窗加宽至 <code>min(760px,94vw)</code>（.modal.wide）。</li>
+      <li><b>回归验收（公众号文章，三按钮全过）</b>：①「看困惑度定义」→ b25 高亮「数字越低，说明模型在面对数据时越『不困惑』，预测越精准」，范围 b25–b30；②「看0.76突破说法」→ b34 高亮「当内部模型的对数困惑度压缩到 ~0.76 时，奇迹发生了。」，范围 b34–b39；③「看四项挑战」→ b63 高亮第一项「跨实验室比较难：…」，范围 b63–b66 成组标记。三者落点均在视区内（inView=true）。</li>
+      <li><b>通用性验收</b>（维基百科条目）：3 个入口全部精准命中（看核心机制→b33 英文原句、看间隔示例→b44、看证据争议→b61–b62），点击定位正常。降级路径经函数级验证（无效 ID / 引文不匹配 → null → 通用入口）。窄屏适配为 CSS 层验证：弹窗 94vw 自适应 + 实验室网格单列（本环境视口固定 960px，无法实际缩放点击）。</li>
+    </ul>
+  </li>
+  <li><b>v1.2.1 → v1.2.2（迭代 · V4 要点式读前筛选 + 快照定位）</b>：用户定下设计标准「只要界面上说『值得读这一段』，用户就应该能点一下，读到那一段」，并要求：保留 V1 要点摘要、把「去读哪段」做成真入口、取消独立「原文证据」区（证据收进要点旁的「看原文」）。实现：
+    <ul>
+      <li><b>V4 提示词</b>（api.js <code>AI_SYSTEM_PROMPT_V4</code>，依据 V3 修订）：输出四键 JSON——verdict / lead（结合 goal 的一句话总起，≤60 字）/ points（0–3 条 {gist≤30字结论, why≤25字作用, blockId 入口段, endBlockId 可选读至段, linkLabel 动宾入口文案}）/ limitation；保留 V3 的范围规则（partial 评已读部分、不劝跳过整篇）与归属规则（作者称不升级为已证实）。</li>
+      <li><b>快照定位阅读器</b>（app.js <code>openSnapshotView</code>）：弹层内渲染全部分段原文，点入口后<b>自动滚动到目标段并琥珀金高亮</b>，上下滚动即看前后文；V4 的 gist/why/linkLabel 按用户示例格式渲染（要点结论 + 作用 + 「看XX →」入口）。</li>
+      <li><b>入口全线接通</b>：实验室 V4 要点入口 → 快照定位；主链路 analyzeCapture 抓取时留存 <code>cap.blocks</code> 分段快照，报告页「原文快照已留存 · 点击溯源」按钮从 toast 占位升级为打开同一阅读器；提取共用 <code>buildBlocks()</code>。</li>
+      <li>端到端实测（同一微信链接）：V4 输出 lead「就已有部分，可按三处跳读：指标解释、红线提议和四个局限」+ 3 条要点（gist 均为实质结论，如「困惑度难跨实验室比较、脱离任务、漏算后训练且探不到底」）+ 3 个入口（b22/b40/b61）；点击「看四个局限 →」→ 快照打开 80 段、b61 高亮居中（该段正是「用困惑度当红线，并不是完美无缺的」）。取消独立证据区，证据由 blockId 定位承载。</li>
+    </ul>
+  </li>
+  <li><b>v1.2.0 → v1.2.1（迭代 · 实验室提示词升级 V3）</b>：用户在 V2 基础上重写提示词为 V3，逐字替换进对比实验室（api.js <code>AI_SYSTEM_PROMPT_V3</code>，解析器同步为 <code>parseV3</code>：readHere 上限 2 条、evidence 上限 3 条）。V3 关键变化：① 首屏只看一句理由即可做决定（reason ≤70 字、禁用「信息密度高」式空话）；② partial 时「先定范围再建议」——评价已读部分并以「就已读部分，……」限定，<b>不得根据选段劝用户跳过整篇</b>（取代 V2 的 insufficient 倾向）；③ readHere 压缩到 0–2 个入口、相邻同主题段合并；④ evidence 0–3 条逐字短引且须保留否定/条件/归属；⑤ 明确「作者称不能升级为某机构已证实」、不输出「AI 味」评分。冒烟验证（同一微信链接）：V3 判定从 V2 的「材料不足」变为<b>「只读部分」</b>——理由 60 字、按已读部分限定范围（「读困惑度定义与 0.68 红线提议，再看四项落地挑战…其余多为转述和口号」），readHere 2 条、evidence 3 条、局限说明符合新模板。V1 对照仍为「值得读」一刀切。</li>
+  <li><b>v1.1.3 → v1.2.0（功能新增 · 提示词 A/B 对比实验室）</b>：反馈「V1 提示词过于简单，容易把『有一个数字』当成整篇值得读的理由」，用户提供 V2 结构化筛选提示词并要求加对比测试窗口。实现：
+    <ul>
+      <li>新增 <code>#/lab</code> 路由（导航「对比实验 · LAB」）：输入链接/正文 + 可选阅读目标，同一材料对 V1（线上版）与 V2（结构化版）<b>并行调用</b>，左右双栏并排展示结果。</li>
+      <li>V2 提示词逐字内置（api.js <code>AI_SYSTEM_PROMPT_V2</code>）：五级 verdict（read_full/read_parts/skim/skip/insufficient）+ summary/reason/readHere（段落 ID+用途）/evidence（原文短引）/limitation。</li>
+      <li>proxy.py <code>/api/fetch</code> 新增 <b>paragraphs 段落结构</b>（按块级标签切分、过滤短段、单段限长），供 V2 的 blocks 输入；正文上限 12000→30000 字（用户实测暴露截断问题后提升）。</li>
+      <li>端到端实测（用户给的微信链接）：两轮对比均成功。第一轮 50 段/12000 字截断时，V2 诚实判定 <b>insufficient</b> 并精确列出缺失（原始长文/图表/指标口径）；V1 则对同样的截断文本直接判「值得读」——正是用户担心的行为差异。第二轮 80 段/30000 字：V1「值得读」；V2 仍 <b>材料不足</b>（coverage=partial），但给出 6 条「去读哪段」（如 b23-b25 概念解释）+ 8 条原文证据 + 明确局限说明（媒体转述阈值未附原始数据）。V2 的校准式判定 vs V1 的一刀切，差异一目了然。</li>
+      <li>遗留发现：该微信长文全文超 30k 字（含站内推荐噪声），产品化需更聪明的正文抽取（如微信 <code>#js_content</code> 定向提取）或分段抓取——已列为下一步候选。</li>
+    </ul>
+  </li>
+  <li><b>v1.1.2 → v1.1.3（缺陷修复 · 微信链接假判定 + 报告页标题重叠）</b>：反馈「微信链接 2 秒就显示不建议读，应是误判；报告页布局有问题」。根因①：代码对 mp.weixin.qq.com 硬编码短路——直接套 canned「营销推广」剧本、完全跳过真实抓取与模型（2 秒出结果即铁证），根本不是模型误判。修复：<a href="file:///d:/Documents/Trae-CN/shiyi/app/api.js" style="color:var(--steel)">api.js</a> — 移除 weixin 短路，全部链接走真实「抓取 → 模型判定」链路；提交时仅显示中性占位标题「微信公众号文章」，canned 低价值剧本降级为 AI 链路失败时的兜底；真实分析后标题取模型产出（值得读）或抓取到的真实页面标题（不建议读）。proxy.py 更新为真实浏览器 UA + Accept-Language（微信公众号服务端渲染页可正常抓取）。根因②：<code>.rep-head .back</code> 为绝对定位，无封面图时标题仅 6px 上边距，钻入返回按钮下方。修复：<code>.rep-head h2</code> 默认 44px 上边距让位，有封面时经 <code>.rep-cover + h2</code> 归零。验证（用户给出的真实链接 mp.weixin.qq.com/s/-hTFhi7…）：realAI=true，判定「值得读 · 研究解读」，卡片「OpenAI用困惑度设AI智能刹车线」，判定理由为模型真实产出（含「标题耸动需交叉验证」的审慎表述）；标题 offsetTop 52px 不再重叠。</li>
+  <li><b>v1.1.1 → v1.1.2（缺陷修复 · 首页连续黑闪）</b>：反馈「点进首页会连着黑闪好几次」。根因：AI 分析步进回调每步都全量重建 #app DOM，所有带 <code>.reveal</code> 入场动画（透明度 0→1）的元素随之反复重播，首页在自动演示期间有 5~6 次全量重建 = 连续黑闪。修复：<a href="file:///d:/Documents/Trae-CN/shiyi/app/app.js#L647-L676" style="color:var(--steel)">app.js</a> — ① <code>render()</code> 增加同路由检测，同视图刷新加 <code>.silent</code> 类抑制动画重播（路由切换时入场动画照常，styles.css 新增 <code>.silent .reveal{animation:none}</code>）；② 分析步进改为 <code>updateCapSteps()</code> 局部更新（只替换该卡片的步骤条，不再整页重建）；③ 顺带打磨：render 保存/恢复 Hero 输入框草稿与焦点，分析期间打字不再被清空。验证：MutationObserver 实测首屏到演示结束全量重建 6→2 次；复习页翻面/反馈推进正常且 silent 生效；控制台零报错。复习页逐卡反馈的同类闪烁一并消除。</li>
+  <li><b>v1.1.0 → v1.1.1（功能接入 · 真实 LLM 分析链）</b>：接入用户提供的 DeepSeek 模型 API（OpenAI 兼容协议）。
+    <ul>
+      <li><b>密钥安全</b>：key 存于工作区根目录 <code>secrets.local.json</code>（不在原型静态目录内、不可被 URL 直接访问、未出现在任何源码/文档中）；经本地代理转发，浏览器端全程无密钥。该文件勿提交或外传。</li>
+      <li><b>本地代理</b> <a href="file:///d:/Documents/Trae-CN/shiyi/proxy.py" style="color:var(--steel)">proxy.py</a>（替代 http.server）：静态文件服务 + <code>POST /api/fetch</code>（抓取目标网页、剥离 HTML、限长 12000 字）+ <code>POST /api/llm</code>（chat/completions 转发）。启动：<code>python proxy.py 8743</code>。</li>
+      <li><b>分析链真实化</b>（<a href="file:///d:/Documents/Trae-CN/shiyi/app/api.js" style="color:var(--steel)">api.js</a>）：抓取原文（真实网页/粘贴文本）→ 通读 → LLM 价值判定 + 卡片提炼（严格 JSON schema：value/contentType/reason/title/points/excerpt）→ 生成卡片；四步动效由真实进度驱动而非定时器。</li>
+      <li><b>兜底策略</b>：代理未启动、抓取失败或模型异常时自动回落 canned 演示数据，流程永不中断；报告页新增来源标识（钢蓝 chip「DeepSeek 实时分析」/ 灰色「演示数据 · AI 未接通」），回落时 toast 提示。微信链接仍走营销推广剧本（真实抓取受限），文件上传仍为模拟。</li>
+      <li><b>端到端实测</b>（浏览器）：① 真实链接 https://en.wikipedia.org/wiki/Spaced_repetition → 抓取真实正文 → 判定「值得读」→ 卡片「间隔重复：按遗忘曲线递增复习间隔提升长期记忆」+ 4 条真实要点；② 粘贴检索练习效应文本 → realAI=true，卡片标题/摘录均来自真实内容；③ LLM 通道冒烟测试直连通过。</li>
+    </ul>
+  </li>
+  <li><b>v1.0.3 → v1.1.0（用户反馈迭代 · 主页与收件箱分离）</b>：反馈「缺少主页，点击收件箱就到了主页，两者应分离；主页放丢给 AI 的入口」。实现（用户确认方案：丢入为主＋今日概览；收件箱去掉丢入区）：
+    <ul>
+      <li>新增 <code>#/home</code> 路由并设为默认落地页：<b>问候语</b>（按时段变化，如「晚上好，阿拾」）+ <b>居中丢入区</b>（Hero，复用同一组件）+ <b>今日概览两卡</b>（今日待复习 N 张→开始复习 / 待确认 N 条→去处理）+ <b>最近收藏 3 条</b>（完整卡片，可查报告/卡片）。</li>
+      <li>导航首位新增「主页」（house 图标）；顶部到期 banner 不再在主页重复展示（概览卡已承担）。</li>
+      <li><b>收件箱回归纯列表</b>：丢入区移除，空态文案引导回主页丢入。</li>
+      <li>侧栏「丢入内容」CTA 与受限条目按钮改为跳转<b>主页</b>并聚焦丢入区；boot 自动演示在主页同样生效（分析完成跳报告页）；主页提交时收件箱计数与最近收藏实时刷新。</li>
+      <li>渲染层抽取 <code>heroHTML() / captureCard()</code> 复用；<code>node --check</code> 通过。运行时回归全 PASS：默认落地主页、收件箱无丢入区（6 条列表）、主页 Enter 提交 → 分析中 → 报告页「值得读」、CTA 跳转聚焦、概览计数正确（4/1）、最近收藏 3 条（截图确认视觉）。</li>
+    </ul>
+  </li>
+  <li><b>v1.0.2 → v1.0.3（用户反馈迭代 · Hero 视觉强化）</b>：反馈「窗口应更大更独特、与下方区分开、一眼可见」。改造：<a href="file:///d:/Documents/Trae-CN/shiyi/app/styles.css#L108-L145" style="color:var(--steel)">styles.css</a> + <a href="file:///d:/Documents/Trae-CN/shiyi/app/app.js#L256-L270" style="color:var(--steel)">app.js</a> — 输入区加高至 96px（字号 15.5px）；新增顶部徽标行「✦ 丢给拾忆 AI」+ 能力说明；琥珀金光晕边框与外发光常显（聚焦增强）；与列表间距拉开至 30px；主按钮加大。运行时回归通过：hero 高度 210px、徽标渲染、类型识别（链接→hostname / 文本→字数）、Enter 提交 → 清空 → 分析中 → 报告页「值得读」、侧栏 CTA 跳转聚焦、附件 chip 与移除，全部 PASS（截图确认视觉）。</li>
+  <li><b>v1.0.1 → v1.0.2（用户反馈迭代 · 丢入入口重构）</b>：反馈「入口应类似 agent 对话窗口、打开主界面就展示、当前入口不好找」。改造：<a href="file:///d:/Documents/Trae-CN/shiyi/app/app.js#L195-L237" style="color:var(--steel)">app.js</a> + <a href="file:///d:/Documents/Trae-CN/shiyi/app/styles.css#L108-L131" style="color:var(--steel)">styles.css</a> —
+    <ul>
+      <li>收件箱首屏顶部新增 <b>Hero 丢入区</b>：大号多行输入框（琥珀金聚焦描边），AI 自动识别链接/文本（实时提示 hostname 或字数），Enter 直发、Shift+Enter 换行；附件按钮模拟选择文档并生成可移除的已选 chip。</li>
+      <li>侧栏「丢入内容」CTA 与受限条目的「选中正文文字再收藏」改为<b>跳转收件箱并聚焦输入框</b>，入口统一为唯一 Hero。</li>
+      <li>原三标签页丢入弹窗整体退役（<code>openCaptureModal / renderCapModalBody / currentCapValue / submitCaptureFlow</code> 等删除，零残留）。</li>
+      <li>820px 断点：hero 操作行整行铺满。静态自检：<code>node --check</code> 通过，27 个 data-act 全覆盖，旧入口引用 0 残留。</li>
+    </ul>
+  </li>
+  <li><b>v1.0 → v1.0.1（首轮测试修复）</b>：修复 D1-D4（app.js 4 处局部编辑，styles.css 未改动，mock.js/api.js 未改动）；<code>node --check</code> 语法校验通过。</li>
+  <li>明确为<b>设计决策、保持不变</b>：报告页要点卡片展示全量要点（数量随内容而定，非固定 4 条）；完成页按钮文案「再演示一轮」；复习队列张数由 mock 数据中 due 卡片数决定（本轮为 4~5 张）。</li>
+  <li>已知边界（原型约定）：分享链接为展示用假链（shiyi.app/s/*）；文件选择为模拟；「原文溯源 / 快照」点击为 toast 占位；回收站恢复页面不在 P0 范围。</li>
+</ul>
+
+<h2><b>05</b> · 遗留项</h2>
+<ul>
+  <li><b>R1 · 运行时回归 + 移动端实测</b>：测试会话后期浏览器环境持续故障（viewport 不可就绪），D1-D4 修复项的浏览器回归与 820px 断点实测未完成。已通过逐行静态验证确认逻辑正确（含 <code>node --check</code>、事件委托表 26 个 data-act 全覆盖）。环境恢复后建议跑一遍：报告页快照按钮 → 弹窗归档/恢复/删除 → 单条丢弃确认 → 复习忘记/模糊路径 → 820px 视口。</li>
+</ul>
+
+<footer>拾忆 · 高保真原型测试报告 ｜ mock 数据、stub API，无真实后端 ｜ 本地预览：python -m http.server --directory app</footer>
+</div>
+</body>
+</html>

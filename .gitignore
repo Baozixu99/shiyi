@@ -1,0 +1,13 @@
+# 敏感信息（绝不提交）
+secrets.local.json
+
+# 构建与缓存
+build/
+__pycache__/
+*.pyc
+.screenshots/
+.trae-html-share-packages/
+
+# 系统文件
+Thumbs.db
+.DS_Store
