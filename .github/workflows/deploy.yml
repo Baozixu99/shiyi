@@ -91,7 +91,7 @@ jobs:
           [System.IO.File]::WriteAllText((Join-Path $stage 'exec-config.json'), ($cfg | ConvertTo-Json -Depth 10))
 
           # 诊断：认证上下文快照
-          Get-ChildItem env: | Sort-Object Name | ForEach-Object { $v = "$($_.Value)"; if ($v.Length -gt 40) { $v = $v.Substring(0,40) + "..." }; Write-Host ("E " + $_.Name + "=" + $v) }
+          Get-ChildItem env: | Where-Object { $_.Name -match '^(CI|GITHUB_|RUNNER_|ACTIONS_)' } | Remove-Item -ErrorAction SilentlyContinue
           $probe = cmd /c "chcp 65001>nul & $bin deployments list --site-id 37ljkvjqby7ib89amxv 2>nul"
           $probe | ForEach-Object { Write-Host ("probe: " + $_.Substring(0, [Math]::Min(150, $_.Length))) }
 
