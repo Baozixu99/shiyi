@@ -1,0 +1,80 @@
+name: Check & Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  check-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 语法检查
+        run: |
+          for f in app/*.js server/server.js server/public/*.js; do
+            node --check "$f" || exit 1
+          done
+          echo "syntax ok"
+
+      - name: 密钥泄漏扫描
+        run: |
+          if grep -rIn "sk-ws-H\." app server tools docs README.md 2>/dev/null; then
+            echo "::error::发现疑似模型密钥内容"
+            exit 1
+          fi
+          echo "no leaked keys"
+
+      - name: 同步前端构建拷贝
+        run: |
+          rsync -a --delete --exclude '.git*' app/ server/public/
+          test -f server/public/index.html && echo "public synced"
+
+      - name: 部署到 Trae 站点
+        if: github.ref == 'refs/heads/main'
+        env:
+          TRAE_JWT: ${{ secrets.TRAE_JWT }}
+          TOOLS_TOKEN: ${{ secrets.DEPLOY_TOOLS_TOKEN }}
+          SHIYI_API_KEY: ${{ secrets.SHIYI_API_KEY }}
+        run: |
+          mkdir -p ~/.trae-cn
+          printf '%s' "$TRAE_JWT" > ~/.trae-cn/trae-jwt-token
+          export TRAE_DEPLOYMENT_TOKEN_PATH="$HOME/.trae-cn/trae-jwt-token"
+
+          curl -sfL \
+            -H "Authorization: token $TOOLS_TOKEN" \
+            -H "Accept: application/vnd.github.raw" \
+            "https://api.github.com/repos/Baozixu99/shiyi-deploy-tools/contents/trae-deploy-linux-x64" \
+            -o ./trae-deploy
+          chmod +x ./trae-deploy
+          ./trae-deploy --version
+
+          mkdir -p build
+          jq -n --arg key "$SHIYI_API_KEY" \
+            '{schema_version:1, build:{runtime_key:"nodejs20", build_script:"build.sh", output_dir:"dist", environment:{}, timeout_seconds:3600}, runtime:{runtime_key:"nodejs20", start_script:"run.sh", port:8000, environment:{PORT:"8000", SHIYI_API_KEY:$key, SHIYI_MODEL:"deepseek-v4.1-flash", SHIYI_BASE_URL:"https://ws-87k3b558xqetd2mn.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"}}}' \
+            > build/exec-config.json
+
+          OUT=$(./trae-deploy deployments create \
+            --site-id 37ljkvjqby7ib89amxv \
+            --title "CI 发布 $GITHUB_SHA" \
+            --type function-web \
+            --source-dir server \
+            --execution-config build/exec-config.json \
+            --app-tags 289) || { echo "$OUT"; exit 1; }
+          echo "$OUT" | tail -3
+
+          DEPLOY_ID=$(printf '%s' "$OUT" | grep -oE 'dep_[a-z0-9]+' | head -1)
+          if [ -z "$DEPLOY_ID" ]; then
+            DEPLOY_ID=$(./trae-deploy deployments list --site-id 37ljkvjqby7ib89amxv | grep -oE 'dep_[a-z0-9]+' | head -1)
+          fi
+          if [ -z "$DEPLOY_ID" ]; then
+            echo "::error::未取得 deployment id"
+            exit 1
+          fi
+          echo "deploying $DEPLOY_ID"
+          ./trae-deploy deployments wait --deployment-id "$DEPLOY_ID" --timeout-seconds 300
