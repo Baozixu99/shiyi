@@ -60,10 +60,17 @@ jobs:
           [System.IO.File]::WriteAllText($tokPath, $env:TRAE_JWT)
           $env:TRAE_DEPLOYMENT_TOKEN_PATH = $tokPath
 
+          # Windows checkout 可能引入 CRLF/BOM；服务端要求脚本以 #!/bin/sh 开头
+          foreach ($s in @('server\build.sh', 'server\run.sh')) {
+            $t = [System.IO.File]::ReadAllText((Resolve-Path $s)) -replace "`r`n", "`n"
+            [System.IO.File]::WriteAllText((Resolve-Path $s), $t)
+            if (-not $t.StartsWith('#!')) { throw "$s missing shebang" }
+          }
+
           # 前端构建拷贝（与原 rsync app/ -> server/public/ 等价）
           Get-ChildItem server\public -ErrorAction Stop | Remove-Item -Recurse -Force -ErrorAction Stop
           Copy-Item app\* server\public\ -Recurse -Force -ErrorAction Stop
-          if (-not (Test-Path server\public\index.html)) { throw "public/index.html 缺失" }
+          if (-not (Test-Path server\public\index.html)) { throw "public/index.html missing" }
 
           # 打包（source-dir 必须位于系统临时目录下）
           $stage = Join-Path $tmp ("shiyi-deploy-" + $env:GITHUB_RUN_ID)
@@ -78,21 +85,21 @@ jobs:
           }
           [System.IO.File]::WriteAllText((Join-Path $stage 'exec-config.json'), ($cfg | ConvertTo-Json -Depth 10))
 
-          $raw = cmd /c "chcp 65001>nul & $bin deployments create --site-id 37ljkvjqby7ib89amxv --title ""CI 发布 $env:GITHUB_SHA"" --type function-web --source-dir $stage --execution-config $stage\exec-config.json --app-tags 289 2>nul"
-          $jsonLine = $raw | Where-Object { $_ -like '{"data"*' } | Select-Object -First 1
-          if (-not $jsonLine) { $raw | ForEach-Object { Write-Host $_ }; throw "create 无 JSON 响应" }
-          $resp = $jsonLine | ConvertFrom-Json
-          if (-not $resp.ok) { Write-Host $jsonLine; throw "create 失败: $($resp.error.code) $($resp.error.message)" }
+          $raw = cmd /c "chcp 65001>nul & $bin deployments create --site-id 37ljkvjqby7ib89amxv --title ""CI release $env:GITHUB_SHA"" --type function-web --source-dir $stage --execution-config $stage\exec-config.json --app-tags 289 2>nul"
+          $resp = $null
+          foreach ($l in $raw) { if ($l -like '{*') { try { $resp = $l | ConvertFrom-Json } catch {} } }
+          if (-not $resp) { $raw | ForEach-Object { Write-Host $_ }; throw "create: no JSON response" }
+          if (-not $resp.ok) { Write-Host $jsonLine; throw ("create failed: " + $resp.error.code + " " + $resp.error.message) }
           $depId = $resp.data.deployment_id
           Write-Host "deploying $depId"
 
           $wraw = cmd /c "chcp 65001>nul & $bin deployments wait --deployment-id $depId --timeout-seconds 300 2>nul"
-          $wjson = $wraw | Where-Object { $_ -like '{"data"*' } | Select-Object -First 1
-          if (-not $wjson) { $wraw | ForEach-Object { Write-Host $_ }; throw "wait 无 JSON 响应" }
-          $wresp = $wjson | ConvertFrom-Json
-          if (-not $wresp.ok) { Write-Host $wjson; throw "wait 失败" }
+          $wresp = $null
+          foreach ($l in $wraw) { if ($l -like '{*') { try { $wresp = $l | ConvertFrom-Json } catch {} } }
+          if (-not $wresp) { $wraw | ForEach-Object { Write-Host $_ }; throw "wait: no JSON response" }
+          if (-not $wresp.ok) { Write-Host $wraw; throw ("wait failed: " + $wresp.error.code) }
           Write-Host ("deployment status=" + $wresp.data.deployment.status + " progress=" + $wresp.data.deployment.progress_percent)
 
           $code = (Invoke-WebRequest -Uri 'https://37ljkvjqby7ib89amxv.traesite.cn/' -UseBasicParsing -TimeoutSec 60 -ErrorAction Stop).StatusCode
-          if ($code -ne 200) { throw "站点校验失败 HTTP $code" }
+          if ($code -ne 200) { throw "site check failed HTTP $code" }
           Write-Host "site check: HTTP $code"
