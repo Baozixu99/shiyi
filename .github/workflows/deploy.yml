@@ -88,6 +88,13 @@ jobs:
           }
           [System.IO.File]::WriteAllText((Join-Path $stage 'exec-config.json'), ($cfg | ConvertTo-Json -Depth 10))
 
+          # 诊断：认证上下文快照
+          Write-Host ("TRAE keys: " + ((Get-ChildItem env: | Where-Object { $_.Name -like 'TRAE*' } | ForEach-Object { $_.Name }) -join ','))
+          Write-Host ("proxy keys: " + ((Get-ChildItem env: | Where-Object { $_.Name -match 'i?proxy' } | ForEach-Object { $_.Name }) -join ','))
+          Write-Host ("HOME=[$env:HOME] SESSIONNAME=[$env:SESSIONNAME] USERPROFILE=[$env:USERPROFILE] LOGONSERVER=[$env:LOGONSERVER]")
+          $probe = cmd /c "chcp 65001>nul & $bin deployments list --site-id 37ljkvjqby7ib89amxv 2>nul"
+          $probe | ForEach-Object { Write-Host ("probe: " + $_.Substring(0, [Math]::Min(150, $_.Length))) }
+
           $raw = cmd /c "chcp 65001>nul & $bin deployments create --site-id 37ljkvjqby7ib89amxv --title ""CI release $env:GITHUB_SHA"" --type function-web --source-dir $stage --execution-config $stage\exec-config.json --app-tags 289 2>nul"
           $resp = $null
           foreach ($l in $raw) { if ($l -like '{*') { try { $resp = $l | ConvertFrom-Json } catch {} } }
