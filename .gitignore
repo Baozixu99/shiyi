@@ -7,6 +7,7 @@ __pycache__/
 *.pyc
 .screenshots/
 .trae-html-share-packages/
+tools/.deploy-state.json
 
 # 系统文件
 Thumbs.db
