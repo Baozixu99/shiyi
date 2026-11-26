@@ -61,6 +61,7 @@ jobs:
           STAGE="/tmp/shiyi-deploy-$GITHUB_RUN_ID"
           mkdir -p "$STAGE"
           cp -a server/. "$STAGE"/
+          chmod +x "$STAGE/build.sh" "$STAGE/run.sh"
 
           jq -n --arg key "$SHIYI_API_KEY" \
             '{schema_version:1, build:{runtime_key:"nodejs20", build_script:"build.sh", output_dir:"dist", environment:{}, timeout_seconds:3600}, runtime:{runtime_key:"nodejs20", start_script:"run.sh", port:8000, environment:{PORT:"8000", SHIYI_API_KEY:$key, SHIYI_MODEL:"deepseek-v4.1-flash", SHIYI_BASE_URL:"https://ws-87k3b558xqetd2mn.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"}}}' \
