@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  check-and-deploy:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,59 +30,69 @@ jobs:
           fi
           echo "no leaked keys"
 
-      - name: 同步前端构建拷贝
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: check
+    runs-on: [self-hosted, shiyi-deploy]
+    env:
+      TRAE_JWT: ${{ secrets.TRAE_JWT }}
+      SHIYI_API_KEY: ${{ secrets.SHIYI_API_KEY }}
+      TRAE_PROJECT_ID: ${{ secrets.TRAE_PROJECT_ID }}
+      TRAE_CHAT_SESSION_ID: ${{ secrets.TRAE_SESSION_ID }}
+      TRAE_LANE: prod
+      TRAE_REGION: cn
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 部署到 Trae 站点（本机 runner）
+        shell: powershell
         run: |
-          rsync -a --delete --exclude '.git*' app/ server/public/
-          test -f server/public/index.html && echo "public synced"
+          # 代理仅用于 runner 连 GitHub；部署 CLI 必须直连国内服务
+          $env:HTTP_PROXY = $null; $env:HTTPS_PROXY = $null
+          $env:http_proxy = $null; $env:https_proxy = $null
+          # 宿主注入的消息 ID 会被服务端校验拒绝（SERVICE_401），显式移除
+          $env:TRAE_USER_MESSAGE_ID = $null
 
-      - name: 部署到 Trae 站点
-        if: github.ref == 'refs/heads/main'
-        env:
-          TRAE_JWT: ${{ secrets.TRAE_JWT }}
-          TOOLS_TOKEN: ${{ secrets.DEPLOY_TOOLS_TOKEN }}
-          SHIYI_API_KEY: ${{ secrets.SHIYI_API_KEY }}
-          TRAE_PROJECT_ID: ${{ secrets.TRAE_PROJECT_ID }}
-          TRAE_CHAT_SESSION_ID: ${{ secrets.TRAE_SESSION_ID }}
-          TRAE_LANE: prod
-          TRAE_REGION: cn
-        run: |
-          mkdir -p ~/.trae-cn
-          printf '%s' "$TRAE_JWT" > ~/.trae-cn/trae-jwt-token
-          export TRAE_DEPLOYMENT_TOKEN_PATH="$HOME/.trae-cn/trae-jwt-token"
+          $bin = 'D:\actions-runner\tools\trae-deploy.exe'
+          $tmp = [System.IO.Path]::GetTempPath()
 
-          curl -sfL \
-            -H "Authorization: token $TOOLS_TOKEN" \
-            -H "Accept: application/vnd.github.raw" \
-            "https://api.github.com/repos/Baozixu99/shiyi-deploy-tools/contents/trae-deploy-linux-x64" \
-            -o ./trae-deploy
-          chmod +x ./trae-deploy
-          ./trae-deploy --version
+          $tokPath = Join-Path $tmp "shiyi-jwt-$env:GITHUB_RUN_ID"
+          [System.IO.File]::WriteAllText($tokPath, $env:TRAE_JWT)
+          $env:TRAE_DEPLOYMENT_TOKEN_PATH = $tokPath
 
-          STAGE="/tmp/shiyi-deploy-$GITHUB_RUN_ID"
-          mkdir -p "$STAGE"
-          cp -a server/. "$STAGE"/
-          chmod +x "$STAGE/build.sh" "$STAGE/run.sh"
+          # 前端构建拷贝（与原 rsync app/ -> server/public/ 等价）
+          Get-ChildItem server\public -ErrorAction Stop | Remove-Item -Recurse -Force -ErrorAction Stop
+          Copy-Item app\* server\public\ -Recurse -Force -ErrorAction Stop
+          if (-not (Test-Path server\public\index.html)) { throw "public/index.html 缺失" }
 
-          jq -n --arg key "$SHIYI_API_KEY" \
-            '{schema_version:1, build:{runtime_key:"nodejs20", build_script:"build.sh", output_dir:"dist", environment:{}, timeout_seconds:3600}, runtime:{runtime_key:"nodejs20", start_script:"run.sh", port:8000, environment:{PORT:"8000", SHIYI_API_KEY:$key, SHIYI_MODEL:"deepseek-v4.1-flash", SHIYI_BASE_URL:"https://ws-87k3b558xqetd2mn.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"}}}' \
-            > "$STAGE/exec-config.json"
+          # 打包（source-dir 必须位于系统临时目录下）
+          $stage = Join-Path $tmp ("shiyi-deploy-" + $env:GITHUB_RUN_ID)
+          if (Test-Path $stage) { Remove-Item $stage -Recurse -Force -ErrorAction Stop }
+          New-Item -ItemType Directory -Path $stage -ErrorAction Stop | Out-Null
+          Copy-Item server\* $stage\ -Recurse -Force -ErrorAction Stop
 
-          OUT=$(./trae-deploy deployments create \
-            --site-id 37ljkvjqby7ib89amxv \
-            --title "CI 发布 $GITHUB_SHA" \
-            --type function-web \
-            --source-dir "$STAGE" \
-            --execution-config "$STAGE/exec-config.json" \
-            --app-tags 289) || { echo "$OUT"; exit 1; }
-          echo "$OUT" | tail -3
+          $cfg = @{
+            schema_version = 1
+            build = @{ runtime_key = 'nodejs20'; build_script = 'build.sh'; output_dir = 'dist'; environment = @{}; timeout_seconds = 3600 }
+            runtime = @{ runtime_key = 'nodejs20'; start_script = 'run.sh'; port = 8000; environment = @{ PORT = '8000'; SHIYI_API_KEY = $env:SHIYI_API_KEY; SHIYI_MODEL = 'deepseek-v4.1-flash'; SHIYI_BASE_URL = 'https://ws-87k3b558xqetd2mn.cn-beijing.maas.aliyuncs.com/compatible-mode/v1' } }
+          }
+          [System.IO.File]::WriteAllText((Join-Path $stage 'exec-config.json'), ($cfg | ConvertTo-Json -Depth 10))
 
-          DEPLOY_ID=$(printf '%s' "$OUT" | grep -oE 'dep_[a-z0-9]+' | head -1)
-          if [ -z "$DEPLOY_ID" ]; then
-            DEPLOY_ID=$(./trae-deploy deployments list --site-id 37ljkvjqby7ib89amxv | grep -oE 'dep_[a-z0-9]+' | head -1)
-          fi
-          if [ -z "$DEPLOY_ID" ]; then
-            echo "::error::未取得 deployment id"
-            exit 1
-          fi
-          echo "deploying $DEPLOY_ID"
-          ./trae-deploy deployments wait --deployment-id "$DEPLOY_ID" --timeout-seconds 300
+          $out = & $bin deployments create --site-id 37ljkvjqby7ib89amxv --title "CI 发布 $env:GITHUB_SHA" --type function-web --source-dir $stage --execution-config "$stage\exec-config.json" --app-tags 289 2>$null
+          $jsonLine = $out | Where-Object { $_ -like '{"data"*' } | Select-Object -First 1
+          if (-not $jsonLine) { $out | ForEach-Object { Write-Host $_ }; throw "create 无 JSON 响应" }
+          $resp = $jsonLine | ConvertFrom-Json
+          if (-not $resp.ok) { Write-Host $jsonLine; throw "create 失败: $($resp.error.code) $($resp.error.message)" }
+          $depId = $resp.data.deployment_id
+          Write-Host "deploying $depId"
+
+          $wout = & $bin deployments wait --deployment-id $depId --timeout-seconds 300 2>$null
+          $wjson = $wout | Where-Object { $_ -like '{"data"*' } | Select-Object -First 1
+          if (-not $wjson) { $wout | ForEach-Object { Write-Host $_ }; throw "wait 无 JSON 响应" }
+          $wresp = $wjson | ConvertFrom-Json
+          if (-not $wresp.ok) { Write-Host $wjson; throw "wait 失败" }
+          Write-Host ("deployment status=" + $wresp.data.deployment.status + " progress=" + $wresp.data.deployment.progress_percent)
+
+          $code = (Invoke-WebRequest -Uri 'https://37ljkvjqby7ib89amxv.traesite.cn/' -UseBasicParsing -TimeoutSec 60 -ErrorAction Stop).StatusCode
+          if ($code -ne 200) { throw "站点校验失败 HTTP $code" }
+          Write-Host "site check: HTTP $code"
