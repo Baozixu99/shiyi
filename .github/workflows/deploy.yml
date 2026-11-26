@@ -41,6 +41,10 @@ jobs:
           TRAE_JWT: ${{ secrets.TRAE_JWT }}
           TOOLS_TOKEN: ${{ secrets.DEPLOY_TOOLS_TOKEN }}
           SHIYI_API_KEY: ${{ secrets.SHIYI_API_KEY }}
+          TRAE_PROJECT_ID: ${{ secrets.TRAE_PROJECT_ID }}
+          TRAE_CHAT_SESSION_ID: ${{ secrets.TRAE_SESSION_ID }}
+          TRAE_LANE: prod
+          TRAE_REGION: cn
         run: |
           mkdir -p ~/.trae-cn
           printf '%s' "$TRAE_JWT" > ~/.trae-cn/trae-jwt-token
