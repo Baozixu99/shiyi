@@ -91,9 +91,7 @@ jobs:
           [System.IO.File]::WriteAllText((Join-Path $stage 'exec-config.json'), ($cfg | ConvertTo-Json -Depth 10))
 
           # 诊断：认证上下文快照
-          Write-Host ("TRAE keys: " + ((Get-ChildItem env: | Where-Object { $_.Name -like 'TRAE*' } | ForEach-Object { $_.Name }) -join ','))
-          Write-Host ("proxy keys: " + ((Get-ChildItem env: | Where-Object { $_.Name -match 'i?proxy' } | ForEach-Object { $_.Name }) -join ','))
-          Write-Host ("HOME=[$env:HOME] SESSIONNAME=[$env:SESSIONNAME] USERPROFILE=[$env:USERPROFILE] LOGONSERVER=[$env:LOGONSERVER]")
+          Get-ChildItem env: | Sort-Object Name | ForEach-Object { $v = "$($_.Value)"; if ($v.Length -gt 40) { $v = $v.Substring(0,40) + "..." }; Write-Host ("E " + $_.Name + "=" + $v) }
           $probe = cmd /c "chcp 65001>nul & $bin deployments list --site-id 37ljkvjqby7ib89amxv 2>nul"
           $probe | ForEach-Object { Write-Host ("probe: " + $_.Substring(0, [Math]::Min(150, $_.Length))) }
 
