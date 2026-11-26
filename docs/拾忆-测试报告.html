@@ -113,6 +113,7 @@
 
 <h2><b>04</b> · 迭代记录（changelog）</h2>
 <ul>
+  <li><b>工程化 · CI/CD 链路打通（仓库公开 + 自动部署）</b>：仓库 <a href="https://github.com/Baozixu99/shiyi">Baozixu99/shiyi</a> 已转公开；GitHub Actions 在每次 push main 时执行语法检查（node --check 全量 JS）与密钥泄漏扫描（sk-ws 前缀 grep），并附带前端构建拷贝校验。部署通道经三轮排障定位：海外 hosted runner 与本机 self-hosted runner 的请求均被 Trae 部署服务端拒绝（SERVICE_401，服务端校验完整 IDE 会话上下文，runner job 进程树无法满足），最终采用<b>本机守护进程方案</b>——<code>tools/auto-deploy-watch.py</code> 作为 Trae IDE 派生进程常驻，轮询 main HEAD（20s），检测到新提交即自动打包部署（create → wait → status=9），端到端延迟约 85 秒。线上部署 <code>dep_6b0815c08b05caddf7692866</code>（守护首跑）与 <code>aef19c5</code>（链路定稿）均自动发布成功。运维注意点：守护依赖 IDE 存活；TRAE_JWT 过期需更新本机 token 文件（<code>~/.trae-cn/trae-jwt-token</code>）；部署排除 <code>TRAE_USER_MESSAGE_ID</code>（服务端校验当前消息会拒绝）。</li>
   <li><b>v1.6.2 → v1.6.3（文案 · 目标输入占位精简）</b>：首页目标行占位文案缩短为「我想知道什么？（可留空）」，去掉机制解释（说明已在报告首屏的目标结论卡中体现）。构建号 v1.6.3，部署 <code>dep_6b065696fb44736ed30fa8bf</code>。</li>
   <li><b>v1.6.1 → v1.6.2（样式 · 输入区简洁化）</b>：用户反馈输入框样式需要更简洁。「我想知道什么」目标行从独立虚线小框改为主输入框下方的一条静音分隔线（无边框无底色，仅 icon + 占位文字，聚焦时 icon 点亮）；hero 内距与行高收紧（textarea 80→68px）、标题行间距减半——整个输入区收敛为单一容器，不再有嵌套边框感。验证：截图确认布局收敛，控制台零报错。部署 <code>dep_6b06527af022733cd04fe831</code>，构建号同步 v1.6.2。</li>
   <li><b>v1.6.0 → v1.6.1（打磨 · 打字机引导 + 记忆宫殿交互预览）</b>：落实 v1.4.4 时提出的两个可选项。
