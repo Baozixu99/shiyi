@@ -59,6 +59,8 @@ jobs:
           $env:http_proxy = $null; $env:https_proxy = $null
           # 宿主注入的消息 ID 会被服务端校验拒绝（SERVICE_401），显式移除
           $env:TRAE_USER_MESSAGE_ID = $null
+          # runner 会把 HOME 指到 work temp，破坏 CLI 对 ~/.trae-cn 的定位，指回真实用户目录
+          $env:HOME = 'C:\Users\Administrator'
 
           $bin = 'D:\actions-runner\tools\trae-deploy.exe'
           $tmp = [System.IO.Path]::GetTempPath()
