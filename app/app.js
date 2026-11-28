@@ -120,8 +120,8 @@ function parseHash() {
 }
 window.addEventListener('hashchange', () => {
   const r = parseHash();
-  if (r.id) { S.route = r.route; S.reportId = r.id; }   // report / toolbox 等带参路由统一存 id
-  else S.route = r.route;
+  S.route = r.route;
+  S.reportId = r.id || null;   // 离开带参路由时必须清 id，否则 toolbox 列表页误判仍在工具页（返回失效）
   if (r.route === 'review' && !S.review.finished && !S.review.queue.length) {
     if (!restoreReviewRound()) initReview();   // R2-06：有未完成轮次则续轮
   }
@@ -1370,30 +1370,69 @@ const TB_FIELDS = {
 
 function tbToolById(id) { return TB_TOOLS.find(t => t.id === id) || null; }
 
-/* 解析服务端在回答末尾附带的 CARD_JSON 行 */
-function tbParseCardJson(content) {
-  const m = String(content || '').match(/^CARD_JSON:\s*(\{[\s\S]*\})\s*$/m);
-  if (!m) return null;
+/* 解析服务端在回答末尾附带的 CARD_JSON（括号平衡截取，容忍代码块包裹等格式抖动） */
+function tbExtractCardJson(content) {
+  const s = String(content || '');
+  const start = s.indexOf('CARD_JSON:');
+  if (start < 0) return null;
+  const i = s.indexOf('{', start);
+  if (i < 0) return null;
+  let depth = 0, inStr = false, escCh = false, end = -1;
+  for (let j = i; j < s.length; j++) {
+    const ch = s[j];
+    if (escCh) { escCh = false; continue; }
+    if (ch === '\\') { escCh = true; continue; }
+    if (ch === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (ch === '{') depth++;
+    else if (ch === '}') { depth--; if (depth === 0) { end = j + 1; break; } }
+  }
+  if (end < 0) return null;
   try {
-    const o = JSON.parse(m[1]);
+    const o = JSON.parse(s.slice(i, end));
     const points = Array.isArray(o.points) ? o.points.map(x => String(x).trim()).filter(Boolean) : [];
     if (!o.title || !points.length) return null;
     return { title: String(o.title).trim(), points: points.slice(0, 6), excerpt: String(o.excerpt || '').trim() };
   } catch (e) { return null; }
 }
 function tbStripCardJson(content) {
-  return String(content || '').replace(/^CARD_JSON:\s*\{[\s\S]*\}\s*$/m, '').replace(/\n{3,}/g, '\n\n').trim();
+  const s = String(content || '');
+  const start = s.indexOf('CARD_JSON:');
+  const body = start >= 0 ? s.slice(0, start) : s;
+  return body.replace(/```+\s*$/, '').replace(/\n{3,}/g, '\n\n').trim();
 }
-/* 结果正文轻量渲染：标题行加粗、列表符号、段落化（不做通用 markdown，防注入） */
+/* 结果正文轻量渲染：标题、列表、粗体、行内代码、引用、简单表格（不做通用 markdown，防注入） */
+function tbInline(t) {
+  return t
+    .replace(/\*\*([^*]+)\*\*/g, '<b class="tb-b">$1</b>')
+    .replace(/`([^`]+)`/g, '<code class="tb-c">$1</code>');
+}
 function tbResultHTML(content) {
   const lines = tbStripCardJson(content).split(/\r?\n/);
-  return lines.map(ln => {
-    const t = esc(ln.trim());
-    if (!t) return '<p class="tb-blank"></p>';
-    if (/^#{1,4}\s/.test(ln.trim())) return '<h4 class="tb-h">' + t.replace(/^#{1,4}\s*/, '') + '</h4>';
-    if (/^\s*(\d+[.、）)]|[-*•])\s+/.test(ln)) return '<div class="tb-li">' + t.replace(/^\s*(\d+[.、）)]|[-*•])\s+/, '<b class="tb-li-n">$1</b>') + '</div>';
-    return '<p class="tb-p">' + t + '</p>';
-  }).join('');
+  let out = '';
+  let tableBuf = [];
+  const flushTable = () => {
+    if (!tableBuf.length) return;
+    const rows = tableBuf.filter(r => !/^\s*\|?[\s:|-]+\|?\s*$/.test(r));   // 去分隔行
+    out += '<div class="tb-table">' + rows.map(r =>
+      '<div class="tb-tr">' + r.replace(/^\s*\|/, '').replace(/\|\s*$/, '').split('|').map(c =>
+        '<span class="tb-td">' + tbInline(esc(c.trim())) + '</span>').join('') + '</div>'
+    ).join('') + '</div>';
+    tableBuf = [];
+  };
+  for (const ln of lines) {
+    const raw = ln.trim();
+    if (!raw) { flushTable(); out += '<p class="tb-blank"></p>'; continue; }
+    if (/^\s*\|.*\|\s*$/.test(raw) && raw.split('|').length >= 3) { tableBuf.push(raw); continue; }
+    flushTable();
+    const t = tbInline(esc(raw));
+    if (/^#{1,4}\s/.test(raw)) out += '<h4 class="tb-h">' + t.replace(/^#{1,4}\s*/, '') + '</h4>';
+    else if (/^&gt;\s?/.test(t)) out += '<blockquote class="tb-q">' + t.replace(/^&gt;\s?/, '') + '</blockquote>';
+    else if (/^\s*(\d+[.、）)]|[-*•])\s+/.test(raw)) out += '<div class="tb-li">' + t.replace(/^\s*(\d+[.、）)]|[-*•])\s+/, '<b class="tb-li-n">$1</b>') + '</div>';
+    else out += '<p class="tb-p">' + t + '</p>';
+  }
+  flushTable();
+  return out;
 }
 
 function renderToolbox() {
@@ -1440,7 +1479,7 @@ function renderToolboxTool(tool) {
       '<p class="v-reason">' + esc(tool.desc) + '</p>' + TB_INTRO +
     '</div>' +
     '<div class="tb-form reveal">' + fields +
-      '<div class="row-actions"><button class="btn primary" data-act="tbSubmit">' + (S.tb.busy ? ic('loader') : ic('spark')) + (S.tb.busy ? '生成中…' : '生成') + '</button></div>' +
+      '<div class="row-actions"><button class="btn primary" data-act="tbSubmit"' + (S.tb.busy ? ' disabled' : '') + '>' + (S.tb.busy ? ic('loader') : ic('spark')) + (S.tb.busy ? '生成中…' : '生成') + '</button></div>' +
     '</div>' + result + '</div>');
 }
 
@@ -1462,9 +1501,9 @@ function renderToolboxChat(tool) {
       (S.tb.busy ? '<div class="tb-msg ai"><span class="who">AI</span><div class="bubble"><span class="think-dots"><i></i><i></i><i></i></span></div></div>' : '') +
     '</div>' +
     '<div class="tb-form reveal">' +
-      '<textarea id="tbInput" class="input" rows="3" placeholder="输入你的回答…（Ctrl+Enter 发送）"></textarea>' +
+      '<textarea id="tbInput" class="input" rows="3" placeholder="输入你的回答…（Ctrl+Enter 发送）"' + (S.tb.busy ? ' disabled' : '') + '></textarea>' +
       '<div class="row-actions">' +
-        '<button class="btn primary" data-act="tbSend">' + ic('chevr') + '发送</button>' +
+        '<button class="btn primary" data-act="tbSend"' + (S.tb.busy ? ' disabled' : '') + '>' + (S.tb.busy ? ic('loader') + '思考中…' : ic('chevr') + '发送') + '</button>' +
         '<button class="btn ghost" data-act="tbBack">' + ic('x') + '结束并退出</button>' +
       '</div>' +
     '</div>'
@@ -1488,7 +1527,7 @@ function tbCollectValues(tool) {
     const v = el ? el.value.trim() : '';
     if (el) el.value = v;
     values[f.key] = v;
-    if (!v && f.ph.indexOf('可选') !== 0) missing = missing || f.label;
+    if (!v && f.label.indexOf('（可选）') !== 0) missing = missing || f.label;   // 可选看 label（ph 以「例如」开头）
   }
   if (missing) { toast('请填写「' + missing + '」', false); return null; }
   return values;
@@ -1499,10 +1538,10 @@ async function tbSubmitFlow(tool, el) {
   if (el) { el.disabled = true; el.classList.add('busy'); }
   S.tb.busy = true; render();
   try {
-    const content = await api.toolboxRun(tool.id, values, [], '');
+    const r = await api.toolboxRun(tool.id, values, [], '');
     S.tb.busy = false;
-    S.tb.result = content;
-    S.tb.cardJson = tbParseCardJson(content);
+    S.tb.result = r.content;
+    S.tb.cardJson = tbExtractCardJson(r.content);
     render();
     toast('已生成', true);
   } catch (e) {
@@ -1519,9 +1558,11 @@ async function tbChatFlow(tool, input, el) {
   const box = document.querySelector('#tbChat');
   if (box) box.scrollTop = box.scrollHeight;
   try {
-    const content = await api.toolboxRun(tool.id, S.tb.values, history, input);
+    const r = await api.toolboxRun(tool.id, S.tb.values, history, input);
     S.tb.busy = false;
-    S.tb.msgs.push({ role: 'assistant', content });
+    /* 首轮（无 input）：把服务端实际发送的 turn 补进对话，保证后续历史完整 */
+    if (!input && r.turn) S.tb.msgs.push({ role: 'user', content: r.turn });
+    S.tb.msgs.push({ role: 'assistant', content: r.content });
     render();
     const b2 = document.querySelector('#tbChat');
     if (b2) b2.scrollTop = b2.scrollHeight;

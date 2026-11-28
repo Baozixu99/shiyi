@@ -261,10 +261,15 @@ async function handleToolbox(req, res, body) {
   const tool = TOOLS[String(input.tool || '')];
   if (!tool) return sendJson(res, 400, { ok: false, error: 'unknown tool' });
   const values = (input.values && typeof input.values === 'object' && !Array.isArray(input.values)) ? input.values : {};
-  for (const k of (TOOL_REQUIRED[input.tool] || [])) {
-    const v = String(values[k] === undefined ? '' : values[k]).trim();
-    if (!v) return sendJson(res, 400, { ok: false, error: 'missing field: ' + k });
-    if (v.length > 12000) return sendJson(res, 400, { ok: false, error: 'field too large: ' + k });
+  /* 必填校验只在「提交起点」执行：single 总是；chat 仅首轮（history 为空）。
+     对话续轮不回传填空值是正常行为，不应 400。 */
+  const isFirstTurn = !(tool.mode === 'chat' && Array.isArray(input.history) && input.history.length > 0);
+  if (isFirstTurn) {
+    for (const k of (TOOL_REQUIRED[input.tool] || [])) {
+      const v = String(values[k] === undefined ? '' : values[k]).trim();
+      if (!v) return sendJson(res, 400, { ok: false, error: 'missing field: ' + k });
+      if (v.length > 12000) return sendJson(res, 400, { ok: false, error: 'field too large: ' + k });
+    }
   }
 
   let messages;
@@ -297,7 +302,8 @@ async function handleToolbox(req, res, body) {
 
   try {
     const out = await callUpstream(messages);
-    sendJson(res, 200, out);
+    /* chat 模式回传 turn：前端把首轮 user 内容补进对话历史，保证后续轮次历史完整 */
+    sendJson(res, 200, { ok: true, content: out.content, turn: tool.mode === 'chat' ? messages[messages.length - 1].content : undefined });
   } catch (e) {
     sendJson(res, 200, { ok: false, error: String(e.message || e).slice(0, 300) });
   }

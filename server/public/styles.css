@@ -1058,3 +1058,14 @@ body::after{
   .tb-grid{grid-template-columns:1fr}
   .tb-chat{max-height:60vh}
 }
+/* 工具箱结果内联样式（v1.7.1）：粗体/行内代码/引用/简单表格 */
+.tb-b{color:var(--accent-strong);font-weight:600}
+.tb-c{font-family:var(--font-mono);font-size:12px;background:var(--surface-2);border:1px solid var(--border-soft);border-radius:4px;padding:1px 5px;color:var(--ai)}
+.tb-q{border-left:3px solid var(--accent);background:var(--surface-2);border-radius:0 var(--r-md) var(--r-md) 0;padding:8px 12px;margin:6px 0;font-size:13.5px;line-height:1.7;color:var(--text-sub)}
+.tb-table{border:1px solid var(--border-soft);border-radius:var(--r-md);overflow:hidden;margin:8px 0;max-width:100%;overflow-x:auto}
+.tb-tr{display:flex;border-bottom:1px solid var(--border-soft);min-width:0}
+.tb-tr:last-child{border-bottom:none}
+.tb-tr:first-child .tb-td{background:var(--surface-2);font-weight:600;color:var(--text)}
+.tb-td{flex:1 1 0;min-width:90px;padding:7px 10px;font-size:12.5px;line-height:1.6;color:var(--text-sub);border-right:1px solid var(--border-soft);word-break:break-word}
+.tb-td:last-child{border-right:none}
+.tb-tr:first-child .tb-td{color:var(--text)}

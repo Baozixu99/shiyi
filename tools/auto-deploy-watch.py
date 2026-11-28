@@ -49,9 +49,19 @@ api_headers = {
 
 
 def gh_json(path):
-    req = urllib.request.Request("https://api.github.com" + path, headers=api_headers)
-    with urllib.request.urlopen(req, timeout=60) as r:
-        return json.loads(r.read().decode())
+    """轮询走 curl.exe 显式代理：python urllib 的 WinINET 代理链路出现过
+    持续 SSLEOFError（2026-11-27），curl 直连又会被重置，显式 -x 最稳。"""
+    r = subprocess.run(
+        ["curl.exe", "-sS", "--max-time", "40", "-x", "http://127.0.0.1:7890",
+         "-H", "Authorization: token " + TOKEN,
+         "-H", "Accept: application/vnd.github+json",
+         "-H", "User-Agent: shiyi-auto-deploy",
+         "https://api.github.com" + path],
+        capture_output=True, text=True, timeout=60,
+    )
+    if r.returncode != 0 or not r.stdout.strip():
+        raise RuntimeError("github api unreachable: rc=%s %s" % (r.returncode, (r.stderr or "")[:120]))
+    return json.loads(r.stdout)
 
 
 def load_state():

@@ -559,11 +559,12 @@ const api = {
   },
 
   /* ---------------- 工具箱（v1.7.0）：/api/llm-toolbox ----------------
-     模板全部在服务端，前端只传 tool + values +（chat 模式的）history。 */
+     模板全部在服务端，前端只传 tool + values +（chat 模式的）history。
+     chat 模式响应含 turn（服务端本轮实际发送的 user 内容），用于补全对话历史。 */
   async toolboxRun(tool, values, history, input) {
     const r = await proxyJSON('/api/llm-toolbox', { tool, values: values || {}, history: history || [], input: input || '' });
     if (!r.ok) throw new Error(r.error || '生成失败');
-    return r.content;
+    return r;
   },
 
   /* ---------------- 报告页深挖（v1.7.0）：双层解释 / 反向拆解 ----------------
