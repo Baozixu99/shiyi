@@ -67,6 +67,20 @@ function sendJson(res, code, obj) {
   res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
   res.end(body);
 }
+/* 长请求保活：部署网关约 30s 无响应字节即断（504 request_timeout）。
+   立即写响应头，等待上游期间每 10s 写一个换行——JSON.parse 容忍前导空白，
+   客户端 r.json() 不受影响。上游完成后一次性写完整 JSON。 */
+function sendJsonKeepalive(res, workPromise) {
+  res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+  const ping = setInterval(() => { try { res.write('\n'); } catch (e) {} }, 10000);
+  workPromise.then(obj => {
+    clearInterval(ping);
+    try { res.end(JSON.stringify(obj)); } catch (e) {}
+  }).catch(e => {
+    clearInterval(ping);
+    try { res.end(JSON.stringify({ ok: false, error: String(e.message || e).slice(0, 300) })); } catch (_) {}
+  });
+}
 function readBody(req, cap) {
   return new Promise((resolve, reject) => {
     let size = 0; const chunks = [];
@@ -156,11 +170,15 @@ async function callUpstream(messages) {
 /* ---------------- /api/fetch ---------------- */
 const WX_VERIFY_RE = /环境异常|请完成验证|操作存在异常|访问过于频繁|去验证|异常访问/;
 async function handleFetch(req, res, body) {
+  /* 抓取最长 3 跳 × 25s，可能超过网关 30s 无字节窗口 → 立即写头 + 心跳保活 */
+  res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+  const ping = setInterval(() => { try { res.write('\n'); } catch (e) {} }, 10000);
+  const finish = obj => { clearInterval(ping); try { res.end(JSON.stringify(obj)); } catch (e) {} };
   let input;
-  try { input = JSON.parse(body || '{}'); } catch (e) { return sendJson(res, 400, { ok: false, error: 'bad json' }); }
+  try { input = JSON.parse(body || '{}'); } catch (e) { return finish({ ok: false, error: 'bad json' }); }
   const urlStr = String(input.url || '').trim();
   let url;
-  try { url = await assertSafeUrl(urlStr); } catch (e) { return sendJson(res, 200, { ok: false, error: String(e.message || e) }); }
+  try { url = await assertSafeUrl(urlStr); } catch (e) { return finish({ ok: false, error: String(e.message || e) }); }
   let current = url;
   let html = '';
   try {
@@ -183,14 +201,14 @@ async function handleFetch(req, res, body) {
         await assertSafeUrl(current.href);        // 每一跳重新校验
         continue;
       }
-      if (!r.ok && r.status >= 400) return sendJson(res, 200, { ok: false, error: 'HTTP ' + r.status });
+      if (!r.ok && r.status >= 400) return finish({ ok: false, error: 'HTTP ' + r.status });
       const buf = await r.arrayBuffer();
       html = new TextDecoder('utf-8', { fatal: false }).decode(buf.slice(0, 3000000));
       break;
     }
-    if (!html) return sendJson(res, 200, { ok: false, error: 'no content (redirect loop?)' });
+    if (!html) return finish({ ok: false, error: 'no content (redirect loop?)' });
   } catch (e) {
-    return sendJson(res, 200, { ok: false, error: String(e.message || e).slice(0, 200) });
+    return finish({ ok: false, error: String(e.message || e).slice(0, 200) });
   }
   const tm = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
   let title = tm ? stripHtml(tm[1]).slice(0, 200) : '';
@@ -205,7 +223,7 @@ async function handleFetch(req, res, body) {
   /* 反爬挑战页检测：微信对数据中心 IP 的间歇性验证页（调试会话 weixin-fetch-verify-page 结论）。
      命中时返回结构化错误，不把验证页文案冒充正文。 */
   if (WX_VERIFY_RE.test(html) || (text.length < 400 && /验证/.test(text) && !/。/.test(text))) {
-    return sendJson(res, 200, { ok: false, error: 'wx-verify' });
+    return finish({ ok: false, error: 'wx-verify' });
   }
   const paras = [];
   for (const p of html.split(/<\/(?:p|div|section|article|h[1-6]|li|blockquote|td)>/i)) {
@@ -213,7 +231,7 @@ async function handleFetch(req, res, body) {
     if (t.length >= 15) paras.push(t.slice(0, 800));
     if (paras.length >= 120) break;
   }
-  sendJson(res, 200, { ok: true, title, text, paragraphs: paras });
+  finish({ ok: true, title, text, paragraphs: paras });
 }
 
 /* ---------------- /api/llm ---------------- */
@@ -227,15 +245,10 @@ async function handleLlm(req, res, body) {
   if (msgs[0].role !== 'system' || msgs[1].role !== 'user') return sendJson(res, 400, { ok: false, error: 'bad roles' });
   if (!sys.startsWith('你是「拾忆」')) return sendJson(res, 403, { ok: false, error: 'prompt not allowed' });  // 白名单：仅拾忆自有模板
   if (user.length > 28000) return sendJson(res, 400, { ok: false, error: 'content too large' });
-  try {
-    const out = await callUpstream([
-      { role: 'system', content: sys },
-      { role: 'user', content: user }
-    ]);
-    sendJson(res, 200, out);
-  } catch (e) {
-    sendJson(res, 200, { ok: false, error: String(e.message || e).slice(0, 300) });
-  }
+  sendJsonKeepalive(res, callUpstream([
+    { role: 'system', content: sys },
+    { role: 'user', content: user }
+  ]));
 }
 
 /* ---------------- /api/llm-toolbox ----------------
@@ -300,13 +313,12 @@ async function handleToolbox(req, res, body) {
     messages = [{ role: 'system', content: tool.system }, ...hmsgs, { role: 'user', content: turn }];
   }
 
-  try {
-    const out = await callUpstream(messages);
+  sendJsonKeepalive(res, callUpstream(messages).then(out => ({
+    ok: true,
+    content: out.content,
     /* chat 模式回传 turn：前端把首轮 user 内容补进对话历史，保证后续轮次历史完整 */
-    sendJson(res, 200, { ok: true, content: out.content, turn: tool.mode === 'chat' ? messages[messages.length - 1].content : undefined });
-  } catch (e) {
-    sendJson(res, 200, { ok: false, error: String(e.message || e).slice(0, 300) });
-  }
+    turn: tool.mode === 'chat' ? messages[messages.length - 1].content : undefined
+  })));
 }
 
 /* ---------------- 静态文件 ---------------- */
