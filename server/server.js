@@ -12,6 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const dns = require('dns');
 const net = require('net');
+const { TOOLS, CARD_TAIL } = require('./toolbox.js');
 
 const PORT = parseInt(process.env.PORT || '8000', 10);
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -20,23 +21,28 @@ const MODEL = process.env.SHIYI_MODEL || 'deepseek-v4.1-flash';
 const BASE_URL = (process.env.SHIYI_BASE_URL || 'https://ws-87k3b558xqetd2mn.cn-beijing.maas.aliyuncs.com/compatible-mode/v1').replace(/\/+$/, '');
 
 /* ---------------- 限流（内存实现，重启即清零） ---------------- */
-const buckets = new Map();          // ip -> { llm: [ts], fetch: [ts] }
+const buckets = new Map();          // ip -> { llm: [ts], fetch: [ts], tb: [ts] }
 const LLM_PER_HOUR_IP = 20;
 const FETCH_PER_HOUR_IP = 60;
+const TOOLBOX_PER_HOUR_IP = 40;     // 工具箱独立小时额度（多轮对话消耗大）
 const LLM_DAY_GLOBAL = 400;
-let llmDay = [];                    // 全局 24h 滚动计数
+let llmDay = [];                    // 全局 24h 滚动计数（主线 + 工具箱共享）
 
 function prune(arr, now, span) { return arr.filter(t => now - t < span); }
 function rateLimit(ip, kind) {
   const now = Date.now();
-  const b = buckets.get(ip) || { llm: [], fetch: [] };
+  const b = buckets.get(ip) || { llm: [], fetch: [], tb: [] };
   b.llm = prune(b.llm, now, 3600000);
   b.fetch = prune(b.fetch, now, 3600000);
+  b.tb = prune(b.tb, now, 3600000);
   llmDay = prune(llmDay, now, 86400000);
   let ok = true;
   if (kind === 'llm') {
     ok = b.llm.length < LLM_PER_HOUR_IP && llmDay.length < LLM_DAY_GLOBAL;
     if (ok) { b.llm.push(now); llmDay.push(now); }
+  } else if (kind === 'tb') {
+    ok = b.tb.length < TOOLBOX_PER_HOUR_IP && llmDay.length < LLM_DAY_GLOBAL;
+    if (ok) { b.tb.push(now); llmDay.push(now); }   // 计入共享日上限
   } else {
     ok = b.fetch.length < FETCH_PER_HOUR_IP;
     if (ok) b.fetch.push(now);
@@ -232,6 +238,71 @@ async function handleLlm(req, res, body) {
   }
 }
 
+/* ---------------- /api/llm-toolbox ----------------
+   工具箱专用通道：prompt 模板全部保存在服务端（toolbox.js），
+   前端只传工具 id + 填空值 +（多轮对话时的）历史消息。
+   不接受任意 system prompt，与主线一样无法被当作开放代理使用。 */
+function fillTemplate(tpl, values) {
+  return String(tpl).replace(/\{(\w+)\}/g, (m, k) => {
+    const v = values && values[k] !== undefined ? String(values[k]).trim() : '';
+    return v;
+  }).replace(/^\s+/, '').replace(/\n{3,}/g, '\n\n');
+}
+/* 必填字段（与服务端模板占位符一致；talent/lifedesign 无必填） */
+const TOOL_REQUIRED = {
+  duallayer: ['topic'], reverse: ['example', 'goal'], socratic: ['confusion'],
+  crossaxis: ['subject'], factcheck: ['claim'], panel: ['problem'],
+  firstprinciple: ['problem'], crossdomain: ['confusion'], steelman: ['decision'],
+  mvp: ['idea'], talent: [], lifedesign: []
+};
+async function handleToolbox(req, res, body) {
+  let input;
+  try { input = JSON.parse(body || '{}'); } catch (e) { return sendJson(res, 400, { ok: false, error: 'bad json' }); }
+  const tool = TOOLS[String(input.tool || '')];
+  if (!tool) return sendJson(res, 400, { ok: false, error: 'unknown tool' });
+  const values = (input.values && typeof input.values === 'object' && !Array.isArray(input.values)) ? input.values : {};
+  for (const k of (TOOL_REQUIRED[input.tool] || [])) {
+    const v = String(values[k] === undefined ? '' : values[k]).trim();
+    if (!v) return sendJson(res, 400, { ok: false, error: 'missing field: ' + k });
+    if (v.length > 12000) return sendJson(res, 400, { ok: false, error: 'field too large: ' + k });
+  }
+
+  let messages;
+  if (tool.mode === 'single') {
+    /* 必填校验 + 长度上限 */
+    const user = fillTemplate(tool.user, values);
+    if (/\{\w+\}/.test(user)) return sendJson(res, 400, { ok: false, error: 'missing field' });
+    if (user.length > 28000) return sendJson(res, 400, { ok: false, error: 'content too large' });
+    messages = [
+      { role: 'system', content: tool.system + CARD_TAIL },
+      { role: 'user', content: user }
+    ];
+  } else {
+    /* chat：首轮由 first 模板 + 填空值生成，之后回传对话历史 */
+    const history = Array.isArray(input.history) ? input.history : [];
+    if (history.length > 40) return sendJson(res, 400, { ok: false, error: 'history too long' });
+    const hmsgs = [];
+    for (const h of history) {
+      const role = h && h.role;
+      const content = h && typeof h.content === 'string' ? h.content : '';
+      if ((role !== 'user' && role !== 'assistant') || !content || content.length > 8000) {
+        return sendJson(res, 400, { ok: false, error: 'bad history' });
+      }
+      hmsgs.push({ role, content });
+    }
+    const turn = history.length === 0 ? fillTemplate(tool.first, values) : String(input.input || '').slice(0, 8000);
+    if (!turn) return sendJson(res, 400, { ok: false, error: 'empty input' });
+    messages = [{ role: 'system', content: tool.system }, ...hmsgs, { role: 'user', content: turn }];
+  }
+
+  try {
+    const out = await callUpstream(messages);
+    sendJson(res, 200, out);
+  } catch (e) {
+    sendJson(res, 200, { ok: false, error: String(e.message || e).slice(0, 300) });
+  }
+}
+
 /* ---------------- 静态文件 ---------------- */
 function serveStatic(req, res, pathname) {
   let rel = decodeURIComponent(pathname);
@@ -261,6 +332,11 @@ const server = http.createServer(async (req, res) => {
       if (!rateLimit(clientIp(req), 'llm')) return sendJson(res, 429, { ok: false, error: 'rate limited, try later' });
       const body = await readBody(req, 131072);
       return await handleLlm(req, res, body);
+    }
+    if (req.method === 'POST' && pathname === '/api/llm-toolbox') {
+      if (!rateLimit(clientIp(req), 'tb')) return sendJson(res, 429, { ok: false, error: 'rate limited, try later' });
+      const body = await readBody(req, 131072);
+      return await handleToolbox(req, res, body);
     }
     if (req.method === 'GET' || req.method === 'HEAD') return serveStatic(req, res, pathname);
     res.writeHead(405); res.end('method not allowed');

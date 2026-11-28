@@ -247,6 +247,43 @@ function numbersBound(text, article) {
   return nums.every(n => article.indexOf(n) !== -1);
 }
 
+/* ---------------- 深挖（v1.7.0）：报告页 → 双层解释 / 反向拆解 → 生成复习卡片 ----------------
+ * 输出与主线卡片同一 JSON schema；不引入正文不存在的事实；数字红线沿用（生成后由前端过滤）。 */
+const AI_DEEP_DUAL = [
+  '你是「拾忆」的深度理解助手。用户已收藏一篇正文，现在想对其中一个概念做双层解释：先用生活化的语言和一个具体例子讲「小白版」，再用准确术语讲「专业版」（核心机制、适用边界、常见误解），并列出小白说法与专业术语的对应关系、最容易理解错的地方。',
+  '只基于给定正文与你可靠的通用知识，不要引入正文之外的具体事实、数据或引文。',
+  '数字与限定词红线：输出的每个数字都必须能在正文逐字找到，不改写数量与限定词。',
+  '只输出一个 JSON 对象，不要输出任何其他文字、解释或代码块标记，字段如下：',
+  '{"title":"卡片标题：一句话总结这次解释的核心洞见，25 字以内",',
+  '"points":["要点1","要点2","要点3","要点4","要点5","要点6"],其中必须包含 3 个「检验是否真正理解」的自测问题（以「Q：」开头）,',
+  '"excerpt":"正文中与该概念最相关的一句原文摘录，40 字以内"}'
+].join('\n');
+const AI_DEEP_REVERSE = [
+  '你是「拾忆」的拆解助手。用户已收藏一篇正文，现在想对它做反向拆解：先用一句话说明它解决了什么问题，再分析它服务谁、采用了什么结构与流程、哪些关键选择拉开了质量差距、完成标准是什么，最后提炼 3 到 5 条可复用规律和一份可以照着执行的操作清单。',
+  '只基于给定正文与你可靠的通用知识，不要引入正文之外的具体事实、数据或引文。',
+  '数字与限定词红线：输出的每个数字都必须能在正文逐字找到，不改写数量与限定词。',
+  '只输出一个 JSON 对象，不要输出任何其他文字、解释或代码块标记，字段如下：',
+  '{"title":"卡片标题：一句话总结最核心的可复用规律，25 字以内",',
+  '"points":["要点1","要点2","要点3","要点4","要点5","要点6"],前 3 到 5 条为可复用规律，其余为操作清单的第一步,',
+  '"excerpt":"正文中最能代表该案例有效性的一句原文摘录，40 字以内"}'
+].join('\n');
+function parseDeep(txt) {
+  if (!txt) throw new Error('empty');
+  let s = String(txt).trim();
+  const m = s.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (m) s = m[1].trim();
+  const i = s.indexOf('{'), j = s.lastIndexOf('}');
+  if (i < 0 || j <= i) throw new Error('no json');
+  const o = JSON.parse(s.slice(i, j + 1));
+  const points = Array.isArray(o.points) ? o.points.map(x => String(x).trim()).filter(Boolean) : [];
+  if (!o.title || !points.length) throw new Error('bad schema');
+  return {
+    title: String(o.title).trim(),
+    points: points.slice(0, 6),
+    excerpt: String(o.excerpt || '').trim()
+  };
+}
+
 const api = {
 
   /* 提示词 A/B 对比实验（#/lab）：同一材料，V1/V4 两套提示词并行调用 */
@@ -519,6 +556,50 @@ const api = {
     cap.status = 'processing'; cap.step = 0; cap.failReason = null;
     DB.save();
     return cap;
+  },
+
+  /* ---------------- 工具箱（v1.7.0）：/api/llm-toolbox ----------------
+     模板全部在服务端，前端只传 tool + values +（chat 模式的）history。 */
+  async toolboxRun(tool, values, history, input) {
+    const r = await proxyJSON('/api/llm-toolbox', { tool, values: values || {}, history: history || [], input: input || '' });
+    if (!r.ok) throw new Error(r.error || '生成失败');
+    return r.content;
+  },
+
+  /* ---------------- 报告页深挖（v1.7.0）：双层解释 / 反向拆解 ----------------
+     走主线 /api/llm（system 以「你是「拾忆」」开头，符合白名单），
+     输出与主线卡片同一 JSON schema，生成的新卡片直接进入复习队列。 */
+  async deepDive(capId, mode, query) {
+    const cap = DB.captureById(capId);
+    if (!cap) throw new Error('内容不存在');
+    const article = (Array.isArray(cap.blocks) && cap.blocks.length)
+      ? cap.blocks.map(b => b.text).join('\n')
+      : String(cap.raw || '');
+    if (!article.trim()) throw new Error('这条收藏没有可用的正文');
+    const text = article.slice(0, 20000);
+    const sys = mode === 'reverse' ? AI_DEEP_REVERSE : AI_DEEP_DUAL;
+    const label = mode === 'reverse' ? '反向拆解' : '双层解释';
+    const r = await proxyJSON('/api/llm', { messages: [
+      { role: 'system', content: sys },
+      { role: 'user', content: (mode === 'reverse'
+        ? '拆解方向：' + query
+        : '想深入理解的概念：' + query) + '\n\n正文：\n' + text }
+    ] });
+    if (!r.ok) throw new Error(r.error || '生成失败');
+    const o = parseDeep(r.content);
+    const ex = verifyExcerpt(text, o.excerpt);
+    const card = {
+      id: nextId('card'), captureId: cap.id,
+      title: o.title, points: o.points, excerpt: ex.excerpt,
+      excerptVerbatim: ex.verbatim,
+      sourceName: cap.sourceName, sourceUrl: cap.sourceUrl,
+      tags: ['深挖 · ' + label], status: 'learning', stage: 0,
+      reviews: 0, due: true, shared: false, cover: cap.cover || null,
+      createdAt: '刚刚'
+    };
+    DB.cards.unshift(card);
+    DB.save();
+    return card;
   },
 
   /* PATCH /api/cards/:id  { title, points, excerpt, tags } */

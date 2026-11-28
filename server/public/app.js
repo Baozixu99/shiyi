@@ -61,7 +61,7 @@ const S = {
 };
 
 const ANALYSIS_STEPS = ['抓取原文', '通读全文', '价值判定', '要点提炼'];
-const APP_VERSION = 'v1.6.3';
+const APP_VERSION = 'v1.7.0';
 const TYPE_ICON = { link: 'link', text: 'type', image: 'image', doc: 'filetext' };
 
 /* ---------------- 工具 ---------------- */
@@ -120,7 +120,7 @@ function parseHash() {
 }
 window.addEventListener('hashchange', () => {
   const r = parseHash();
-  if (r.route === 'report' && r.id) { S.route = 'report'; S.reportId = r.id; }
+  if (r.id) { S.route = r.route; S.reportId = r.id; }   // report / toolbox 等带参路由统一存 id
   else S.route = r.route;
   if (r.route === 'review' && !S.review.finished && !S.review.queue.length) {
     if (!restoreReviewRound()) initReview();   // R2-06：有未完成轮次则续轮
@@ -297,7 +297,8 @@ function shell(title, body) {
     ['library', 'layers', '卡片库', ''],
     ['review', 'calcheck', '今日复习', due ? '<b class="nav-badge due">' + due + '</b>' : ''],
     ['palace', 'landmark', '记忆宫殿', '<i class="nav-p1">P1</i>'],
-    ['lab', 'eye', '对比实验', '<i class="nav-p1">LAB</i>']
+    ['lab', 'eye', '对比实验', '<i class="nav-p1">LAB</i>'],
+    ['toolbox', 'book', '工具箱', '']
   ].map(n =>
     /* 工单16：导航用真实锚点，Tab 可达、Enter 切页、aria-current 标识当前页 */
     '<a href="#/' + n[0] + '" class="nav-item' + (S.route === n[0] ? ' active' : '') + '"' +
@@ -1093,6 +1094,15 @@ function renderReport() {
   }
 
   const goalBlock = (c.goal && c.v4 && c.v4.ok && c.status !== 'failed' && c.status !== 'restricted') ? goalConclusionHTML(c) : '';
+  /* v1.7.0 深挖：值得读/手动保留且留有正文时，可把这条收藏再送进工具箱方法生成复习卡 */
+  const deepBlock = ((worth || kept) && c.status === 'analyzed' && ((Array.isArray(c.blocks) && c.blocks.length) || c.raw))
+    ? '<div class="deep reveal"><div class="v-badge">' + ic('book') + '深挖这块内容</div>' +
+      '<p class="v-reason">用工具箱方法把这条收藏变成更深的理解卡片，新卡片会进入今日复习。</p>' +
+      '<div class="row-actions">' +
+        '<button class="btn" data-act="deepDive" data-mode="duallayer" data-id="' + c.id + '">' + ic('spark') + '双层解释</button>' +
+        '<button class="btn" data-act="deepDive" data-mode="reverse" data-id="' + c.id + '">' + ic('layers') + '反向拆解</button>' +
+      '</div></div>'
+    : '';
   const body =
     '<div class="report">' +
       '<div class="rep-head reveal">' +
@@ -1106,7 +1116,7 @@ function renderReport() {
           : '快照未留存') + '</p>' +
       '</div>' +
       (goalBlock ? goalBlock : '') +
-      (c.status === 'failed' ? stepsFailed : stepsAll) + verdictBlock +
+      (c.status === 'failed' ? stepsFailed : stepsAll) + verdictBlock + deepBlock +
     '</div>';
   return shell('AI 分析报告', body);
 }
@@ -1271,7 +1281,8 @@ function render() {
     : null;
   const v = {
     home: renderHome, inbox: renderInbox, confirm: renderConfirm, library: renderLibrary,
-    review: renderReview, palace: renderPalace, lab: renderLab, report: renderReport
+    review: renderReview, palace: renderPalace, lab: renderLab, report: renderReport,
+    toolbox: renderToolbox
   }[S.route];
   app.innerHTML = v();
   if (sameRoute) app.classList.add('silent');
@@ -1305,5 +1316,343 @@ function updateCapSteps(capId) {
   S.route = r.route === 'report' ? 'report' : r.route;
   S.reportId = r.id;
   if (S.route === 'review') { if (!restoreReviewRound()) initReview(); }
+  render();
+})();
+
+/* ============================================================
+ * 工具箱（v1.7.0）：12 个提问/学习方法作为独立功能入口
+ * 模板保存在服务端 server/toolbox.js（防开放代理），前端只传
+ * 工具 id + 填空值 +（多轮对话的）历史。产出可一键存为知识卡片。
+ * 方法整理自「数字生命卡兹克」公开分享，横纵分析/事实核查为离线适配版。
+ * ============================================================ */
+ROUTES.push('toolbox');
+S.tb = { busy: false, result: null, cardJson: null, msgs: [], started: false };
+
+const TB_INTRO = '<p class="v-reason">丢进来的内容要「读懂」，这里的问题要「问透」。选择一个方法，填空或对话，产出可存为知识卡片进入复习。</p>' +
+  '<p class="hint-line tb-src">方法整理自 <a href="https://mp.weixin.qq.com/s/NAdhdFrUq9-BKelqzqpwBQ" target="_blank" rel="noopener">数字生命卡兹克的公开分享</a> · 横纵分析与事实核查为离线适配版（不联网）· 每小时 40 次</p>';
+
+/* 12 个工具的前端元数据（key 与服务端模板占位符一致） */
+const TB_TOOLS = [
+  { id: 'duallayer', name: '双层解释法', scene: '学习', mode: 'single', icon: 'book', desc: '一个概念讲两遍：小白版让你听懂，专业版讲清机制与边界，最后给你 3 道自测题。' },
+  { id: 'reverse', name: '反向拆解', scene: '学习', mode: 'single', icon: 'layers', desc: '粘贴一个优秀成品，反向拆出它为什么有效，拿走可复用的规律和清单。' },
+  { id: 'socratic', name: '苏格拉底式提问', scene: '问清问题', mode: 'chat', icon: 'search', desc: '不直接给答案，用最多 6 个追问帮你把模糊的困惑变成真正值得回答的问题。' },
+  { id: 'crossaxis', name: '横纵分析法', scene: '学习', mode: 'single', icon: 'clock', desc: '纵向看历史脉络、横向比同类对象，交叉判断未来路径（离线版）。' },
+  { id: 'factcheck', name: '事实核查', scene: '学习', mode: 'single', icon: 'checkc', desc: '把说法拆成事实/结论/价值判断，逐层检查推理漏洞（离线版）。' },
+  { id: 'panel', name: '专家会诊', scene: '解决问题', mode: 'single', icon: 'landmark', desc: '3 种互补的专业视角各自分析、互相质疑，综合成方案。' },
+  { id: 'firstprinciple', name: '第一性原理', scene: '解决问题', mode: 'single', icon: 'zap', desc: '拆回不可绕开的基本事实，区分真目标与未验证的假设，重新推导路径。' },
+  { id: 'crossdomain', name: '跨领域借解', scene: '解决问题', mode: 'single', icon: 'rotl', desc: '把困惑抽象成底层结构，从其他遥远领域搬回已验证的解法。' },
+  { id: 'steelman', name: '双向钢人论证', scene: '决策', mode: 'chat', icon: 'flag', desc: '把两个方向都论证到最强，找出关键分歧，只问你一个最关键的问题。' },
+  { id: 'mvp', name: '最小实验替代空想', scene: '决策', mode: 'single', icon: 'upload', desc: '找出纠结背后最该验证的假设，设计一个 7 天内能做完的可逆实验。' },
+  { id: 'talent', name: '挖掘隐藏天赋', scene: '认识自己', mode: 'chat', icon: 'flame', desc: '10 个问题的深度对话，从怪癖、嫉妒和能量模式里找出被埋没的天赋。' },
+  { id: 'lifedesign', name: '人生设计术', scene: '认识自己', mode: 'chat', icon: 'home', desc: '看清位置、分清真问题与重力问题，生成三个五年版本的奥德赛计划。' }
+];
+/* 表单字段（key 必须与服务端模板占位符一致） */
+const TB_FIELDS = {
+  duallayer: [{ key: 'topic', label: '想学习的概念或问题', ph: '例如：大语言模型的 temperature 参数是怎么工作的', multi: false }],
+  reverse: [
+    { key: 'example', label: '要拆解的优秀范例', ph: '粘贴产品页面文案、方案、流程说明、文章或其他成品内容', multi: true },
+    { key: 'goal', label: '你想从中学会什么', ph: '例如：学会它开头的写法，让用户愿意继续读下去', multi: false }
+  ],
+  socratic: [{ key: 'confusion', label: '你的困惑', ph: '尽量具体地描述发生了什么、你怎么理解，以及你卡在哪里', multi: true }],
+  crossaxis: [{ key: 'subject', label: '研究对象', ph: '产品、公司、人物、技术、行业或事件', multi: false }],
+  factcheck: [{ key: 'claim', label: '要核查的说法', ph: '粘贴观点、结论、数据或方案', multi: true }],
+  panel: [{ key: 'problem', label: '你的问题', ph: '填写问题、已知事实、目标和现实约束', multi: true }],
+  firstprinciple: [{ key: 'problem', label: '你想解决的问题', ph: '填写你的问题，越具体越好', multi: true }],
+  crossdomain: [{ key: 'confusion', label: '你的困惑', ph: '说明背景、当前做法、现实约束和具体卡点', multi: true }],
+  steelman: [{ key: 'decision', label: '要做的决定', ph: '写清问题、两个选项、目标和现实约束', multi: true }],
+  mvp: [
+    { key: 'idea', label: '你正在纠结的选择或想法', ph: '填写你的选择或想法', multi: true },
+    { key: 'cycle', label: '实验周期', ph: '7天（或你能接受的周期）', multi: false }
+  ],
+  talent: [{ key: 'bg', label: '（可选）先简单介绍你的现状', ph: '例如：做什么工作、最近在纠结什么', multi: true }],
+  lifedesign: [{ key: 'bg', label: '（可选）先简单介绍你的现状', ph: '例如：现在的状态、最想解决的人生问题', multi: true }]
+};
+
+function tbToolById(id) { return TB_TOOLS.find(t => t.id === id) || null; }
+
+/* 解析服务端在回答末尾附带的 CARD_JSON 行 */
+function tbParseCardJson(content) {
+  const m = String(content || '').match(/^CARD_JSON:\s*(\{[\s\S]*\})\s*$/m);
+  if (!m) return null;
+  try {
+    const o = JSON.parse(m[1]);
+    const points = Array.isArray(o.points) ? o.points.map(x => String(x).trim()).filter(Boolean) : [];
+    if (!o.title || !points.length) return null;
+    return { title: String(o.title).trim(), points: points.slice(0, 6), excerpt: String(o.excerpt || '').trim() };
+  } catch (e) { return null; }
+}
+function tbStripCardJson(content) {
+  return String(content || '').replace(/^CARD_JSON:\s*\{[\s\S]*\}\s*$/m, '').replace(/\n{3,}/g, '\n\n').trim();
+}
+/* 结果正文轻量渲染：标题行加粗、列表符号、段落化（不做通用 markdown，防注入） */
+function tbResultHTML(content) {
+  const lines = tbStripCardJson(content).split(/\r?\n/);
+  return lines.map(ln => {
+    const t = esc(ln.trim());
+    if (!t) return '<p class="tb-blank"></p>';
+    if (/^#{1,4}\s/.test(ln.trim())) return '<h4 class="tb-h">' + t.replace(/^#{1,4}\s*/, '') + '</h4>';
+    if (/^\s*(\d+[.、）)]|[-*•])\s+/.test(ln)) return '<div class="tb-li">' + t.replace(/^\s*(\d+[.、）)]|[-*•])\s+/, '<b class="tb-li-n">$1</b>') + '</div>';
+    return '<p class="tb-p">' + t + '</p>';
+  }).join('');
+}
+
+function renderToolbox() {
+  const tool = tbToolById(S.reportId);
+  if (tool) return renderToolboxTool(tool);
+  const cards = TB_TOOLS.map(t =>
+    '<button class="tb-card reveal" data-act="tbOpen" data-tool="' + t.id + '">' +
+      '<span class="chip mute">' + esc(t.scene) + '</span>' +
+      '<h3>' + ic(t.icon) + esc(t.name) + '</h3>' +
+      '<p>' + esc(t.desc) + '</p>' +
+      '<span class="tb-go">' + (t.mode === 'chat' ? '开始对话 ' : '开始填空 ') + ic('chevr') + '</span>' +
+    '</button>'
+  ).join('');
+  return shell('工具箱',
+    '<div class="toolbox"><div class="tb-intro reveal">' +
+      '<h2>' + ic('book') + '12 个把问题问透的方法</h2>' + TB_INTRO +
+    '</div><div class="tb-grid">' + cards + '</div></div>');
+}
+
+function renderToolboxTool(tool) {
+  if (tool.mode === 'chat') return renderToolboxChat(tool);
+  const fields = (TB_FIELDS[tool.id] || []).map(f =>
+    '<label class="tb-label">' + esc(f.label) + '</label>' +
+    (f.multi
+      ? '<textarea id="tbf-' + f.key + '" class="input" rows="6" placeholder="' + esc(f.ph) + '"></textarea>'
+      : '<input id="tbf-' + f.key + '" class="input" placeholder="' + esc(f.ph) + '">')
+  ).join('');
+  const result = S.tb.result != null
+    ? '<div class="tb-result reveal"><h4>' + ic('spark') + esc(tool.name) + ' · 结果</h4>' +
+      tbResultHTML(S.tb.result) +
+      '<div class="row-actions">' +
+        (S.tb.cardJson ? '<button class="btn primary" data-act="tbSaveCard">' + ic('layers') + '存为知识卡片</button>' : '') +
+        '<button class="btn" data-act="tbCopy">' + ic('type') + '复制全文</button>' +
+        '<button class="btn ghost" data-act="tbBack">' + ic('arrowl') + '重新填写</button>' +
+      '</div>' +
+      (S.tb.cardJson ? '<p class="hint-line">已解析出卡片要点，保存后进入今日复习队列。</p>' : '') +
+    '</div>'
+    : '';
+  return shell(tool.name,
+    '<div class="toolbox"><div class="tb-intro reveal">' +
+      '<button class="btn sm ghost back" data-act="tbBack">' + ic('arrowl') + '工具箱</button>' +
+      '<h2>' + ic(tool.icon) + esc(tool.name) + '</h2>' +
+      '<span class="chip mute">' + esc(tool.scene) + '</span>' +
+      '<p class="v-reason">' + esc(tool.desc) + '</p>' + TB_INTRO +
+    '</div>' +
+    '<div class="tb-form reveal">' + fields +
+      '<div class="row-actions"><button class="btn primary" data-act="tbSubmit">' + (S.tb.busy ? ic('loader') : ic('spark')) + (S.tb.busy ? '生成中…' : '生成') + '</button></div>' +
+    '</div>' + result + '</div>');
+}
+
+function renderToolboxChat(tool) {
+  const msgs = S.tb.msgs.map(m =>
+    '<div class="tb-msg ' + (m.role === 'user' ? 'me' : 'ai') + '"><span class="who">' + (m.role === 'user' ? '我' : 'AI') + '</span><div class="bubble">' + tbResultHTML(m.content) + '</div></div>'
+  ).join('');
+  const fields = (TB_FIELDS[tool.id] || []).map(f =>
+    '<label class="tb-label">' + esc(f.label) + '</label>' +
+    '<textarea id="tbf-' + f.key + '" class="input" rows="' + (f.multi ? 4 : 2) + '" placeholder="' + esc(f.ph) + '"></textarea>'
+  ).join('');
+  const startBlock = S.tb.started ? '' :
+    '<div class="tb-form reveal">' + fields +
+      '<div class="row-actions"><button class="btn primary" data-act="tbStart">' + (S.tb.busy ? ic('loader') : ic('spark')) + (S.tb.busy ? '对话启动中…' : '开始对话') + '</button></div>' +
+      '<p class="hint-line">开始后 AI 会逐个提问，你回答后它继续追问或推进（每次回答消耗 1 次额度）。</p>' +
+    '</div>';
+  const chatBlock = S.tb.started ?
+    '<div class="tb-chat reveal" id="tbChat">' + (msgs || '') +
+      (S.tb.busy ? '<div class="tb-msg ai"><span class="who">AI</span><div class="bubble"><span class="think-dots"><i></i><i></i><i></i></span></div></div>' : '') +
+    '</div>' +
+    '<div class="tb-form reveal">' +
+      '<textarea id="tbInput" class="input" rows="3" placeholder="输入你的回答…（Ctrl+Enter 发送）"></textarea>' +
+      '<div class="row-actions">' +
+        '<button class="btn primary" data-act="tbSend">' + ic('chevr') + '发送</button>' +
+        '<button class="btn ghost" data-act="tbBack">' + ic('x') + '结束并退出</button>' +
+      '</div>' +
+    '</div>'
+    : '';
+  return shell(tool.name,
+    '<div class="toolbox"><div class="tb-intro reveal">' +
+      '<button class="btn sm ghost back" data-act="tbBack">' + ic('arrowl') + '工具箱</button>' +
+      '<h2>' + ic(tool.icon) + esc(tool.name) + '</h2>' +
+      '<span class="chip mute">' + esc(tool.scene) + '</span>' +
+      '<p class="v-reason">' + esc(tool.desc) + '</p>' +
+    '</div>' + startBlock + chatBlock + '</div>');
+}
+
+/* ---------------- 工具箱流程 ---------------- */
+function tbCollectValues(tool) {
+  const fields = TB_FIELDS[tool.id] || [];
+  const values = {};
+  let missing = null;
+  for (const f of fields) {
+    const el = document.querySelector('#tbf-' + f.key);
+    const v = el ? el.value.trim() : '';
+    if (el) el.value = v;
+    values[f.key] = v;
+    if (!v && f.ph.indexOf('可选') !== 0) missing = missing || f.label;
+  }
+  if (missing) { toast('请填写「' + missing + '」', false); return null; }
+  return values;
+}
+async function tbSubmitFlow(tool, el) {
+  const values = tbCollectValues(tool);
+  if (!values) return;
+  if (el) { el.disabled = true; el.classList.add('busy'); }
+  S.tb.busy = true; render();
+  try {
+    const content = await api.toolboxRun(tool.id, values, [], '');
+    S.tb.busy = false;
+    S.tb.result = content;
+    S.tb.cardJson = tbParseCardJson(content);
+    render();
+    toast('已生成', true);
+  } catch (e) {
+    S.tb.busy = false; render();
+    toast('生成失败：' + (e && e.message ? e.message : '未知错误'), false);
+  }
+}
+async function tbChatFlow(tool, input, el) {
+  const history = S.tb.msgs.map(m => ({ role: m.role, content: m.content }));
+  if (el) { el.disabled = true; el.classList.add('busy'); }
+  S.tb.busy = true;
+  if (input) S.tb.msgs.push({ role: 'user', content: input });
+  render();
+  const box = document.querySelector('#tbChat');
+  if (box) box.scrollTop = box.scrollHeight;
+  try {
+    const content = await api.toolboxRun(tool.id, S.tb.values, history, input);
+    S.tb.busy = false;
+    S.tb.msgs.push({ role: 'assistant', content });
+    render();
+    const b2 = document.querySelector('#tbChat');
+    if (b2) b2.scrollTop = b2.scrollHeight;
+  } catch (e) {
+    S.tb.busy = false;
+    if (input) S.tb.msgs.pop();      // 失败不留下没有回应的用户消息，可重发
+    render();
+    toast('对话失败：' + (e && e.message ? e.message : '未知错误'), false);
+  }
+}
+function tbSaveCardFlow() {
+  if (!S.tb.cardJson) return;
+  const cj = S.tb.cardJson;
+  const tool = tbToolById(S.reportId);
+  const card = {
+    id: nextId('card'),
+    captureId: null,
+    title: cj.title, points: cj.points.slice(), excerpt: cj.excerpt || '',
+    excerptVerbatim: null,
+    sourceName: '工具箱 · ' + (tool ? tool.name : '深挖'),
+    sourceUrl: null, tags: ['工具箱 · ' + (tool ? tool.name : '')],
+    status: 'learning', stage: 0, reviews: 0, due: true, shared: false, cover: null,
+    createdAt: '刚刚'
+  };
+  DB.cards.unshift(card);
+  DB.save();
+  S.tb.cardJson = null;
+  toast('卡片已生成 · 进入今日复习', true);
+  render();
+}
+function tbReset() {
+  S.tb.busy = false; S.tb.result = null; S.tb.cardJson = null;
+  S.tb.msgs = []; S.tb.started = false; S.tb.values = {};
+}
+
+/* ---------------- 报告页深挖（双层解释 / 反向拆解 → 复习卡片） ---------------- */
+function deepDiveFlow(mode, capId) {
+  const c = DB.captureById(capId);
+  if (!c) return;
+  const card = c.cardId ? DB.cardById(c.cardId) : null;
+  const isDual = mode === 'duallayer';
+  openOverlay(
+    '<h3 class="ov-title">' + ic(isDual ? 'book' : 'layers') + (isDual ? '双层解释' : '反向拆解') + '</h3>' +
+    '<p class="v-reason">' + (isDual
+      ? '基于这条收藏的正文，对指定概念做双层解释并生成复习卡片。'
+      : '反向拆解这条收藏为什么有效，提炼可复用规律并生成复习卡片。') + '</p>' +
+    '<label class="tb-label">' + (isDual ? '想深入理解的概念' : '拆解方向（想学会什么）') + '</label>' +
+    '<input id="deepQuery" class="input" placeholder="' + (isDual ? '默认使用卡片标题，可修改' : '例如：学会它的结构安排') + '" value="' + esc(card ? card.title : '') + '">' +
+    '<div class="row-actions" style="margin-top:14px">' +
+      '<button class="btn primary" data-act="deepDiveRun" data-mode="' + mode + '" data-id="' + capId + '">' + ic('spark') + '生成深挖卡片</button>' +
+      '<button class="btn ghost" data-act="overlayClose">取消</button>' +
+    '</div>', true);
+}
+async function deepDiveRunFlow(mode, capId, el) {
+  const q = (document.querySelector('#deepQuery') || {}).value || '';
+  if (!q.trim()) { toast('请填写方向', false); return; }
+  if (el) { el.disabled = true; el.classList.add('busy'); }
+  try {
+    const card = await api.deepDive(capId, mode, q.trim());
+    closeOverlay();
+    openOverlay(
+      '<h3 class="ov-title">' + ic('checkc') + '深挖卡片已生成</h3>' +
+      '<div class="report-card">' +
+        '<h3>' + esc(card.title) + '</h3>' +
+        '<ol class="pts">' + card.points.map(p => '<li>' + esc(p) + '</li>').join('') + '</ol>' +
+        (card.excerpt ? '<blockquote>' + esc(card.excerpt) + '</blockquote>' : '') +
+      '</div>' +
+      '<div class="row-actions" style="margin-top:14px">' +
+        '<button class="btn primary" data-act="goReview">' + ic('calcheck') + '开始今日复习</button>' +
+        '<button class="btn" data-act="overlayClose">留在本页</button>' +
+      '</div>', true);
+    toast('深挖卡片已进入复习队列', true);
+  } catch (e) {
+    toast('深挖失败：' + (e && e.message ? e.message : '未知错误'), false);
+    if (el) { el.disabled = false; el.classList.remove('busy'); }
+  }
+}
+
+/* ---------------- 工具箱事件 ---------------- */
+Object.assign(ACTIONS, {
+  tbOpen(el) {
+    tbReset();
+    go('toolbox', el.dataset.tool);
+  },
+  tbBack() { tbReset(); go('toolbox'); },
+  tbSubmit(el) {
+    const tool = tbToolById(S.reportId);
+    if (tool) tbSubmitFlow(tool, el);
+  },
+  tbStart(el) {
+    const tool = tbToolById(S.reportId);
+    if (!tool) return;
+    const values = tbCollectValues(tool);
+    if (!values) return;
+    S.tb.values = values;
+    S.tb.started = true;
+    tbChatFlow(tool, null, el);
+  },
+  tbSend(el) {
+    const tool = tbToolById(S.reportId);
+    if (!tool) return;
+    const ta = document.querySelector('#tbInput');
+    const v = ta ? ta.value.trim() : '';
+    if (!v) { toast('请先输入回答', false); return; }
+    ta.value = '';
+    tbChatFlow(tool, v, el);
+  },
+  tbSaveCard() { tbSaveCardFlow(); },
+  tbCopy() {
+    const text = tbStripCardJson(S.tb.result || '');
+    navigator.clipboard.writeText(text).then(() => toast('已复制全文', true), () => toast('复制失败', false));
+  },
+  deepDive(el) { deepDiveFlow(el.dataset.mode, el.dataset.id); },
+  deepDiveRun(el) { deepDiveRunFlow(el.dataset.mode, el.dataset.id, el); }
+});
+
+/* Ctrl+Enter 发送（对话页输入框） */
+document.addEventListener('keydown', e => {
+  if (S.route !== 'toolbox' || e.key !== 'Enter' || !e.ctrlKey) return;
+  const ta = document.querySelector('#tbInput');
+  if (ta && document.activeElement === ta) {
+    const btn = document.querySelector('[data-act="tbSend"]');
+    if (btn) btn.click();
+  }
+});
+
+/* 直达刷新兜底：boot 早于 ROUTES.push 执行，#/toolbox/xxx 直开时在这里纠正 */
+(function tbBootFix() {
+  if (!/^toolbox(\/|$)/.test((location.hash || '').replace(/^#\//, ''))) return;
+  const r = parseHash();
+  S.route = r.route;
+  S.reportId = r.id;
   render();
 })();
