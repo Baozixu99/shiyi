@@ -1589,7 +1589,8 @@ async function tbSubmitFlow(tool, el) {
   }
 }
 async function tbChatFlow(tool, input, el) {
-  const history = S.tb.msgs.map(m => ({ role: m.role, content: m.content }));
+  /* 上传历史用 wire（服务端首轮模板全文），界面显示用 content（用户填写的原文）——避免提示词回显到对话气泡 */
+  const history = S.tb.msgs.map(m => ({ role: m.role, content: m.wire || m.content }));
   if (el) { el.disabled = true; el.classList.add('busy'); }
   S.tb.busy = true;
   tbStartTick();
@@ -1601,8 +1602,13 @@ async function tbChatFlow(tool, input, el) {
     const r = await api.toolboxRun(tool.id, S.tb.values, history, input);
     S.tb.busy = false;
     tbStopTick();
-    /* 首轮（无 input）：把服务端实际发送的 turn 补进对话，保证后续历史完整 */
-    if (!input && r.turn) S.tb.msgs.push({ role: 'user', content: r.turn });
+    /* 首轮（无 input）：对话历史需要服务端实际发送的模板全文（wire），
+       界面只显示用户填写的原文（content），提示词规则不回显到气泡 */
+    if (!input && r.turn) {
+      const vals = S.tb.values || {};
+      const show = Object.keys(vals).map(k => String(vals[k] || '').trim()).filter(Boolean).join('\n') || '请开始';
+      S.tb.msgs.push({ role: 'user', content: show, wire: r.turn });
+    }
     S.tb.msgs.push({ role: 'assistant', content: r.content });
     render();
     const b2 = document.querySelector('#tbChat');
