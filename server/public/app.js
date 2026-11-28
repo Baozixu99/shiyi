@@ -1326,7 +1326,38 @@ function updateCapSteps(capId) {
  * 方法整理自「数字生命卡兹克」公开分享，横纵分析/事实核查为离线适配版。
  * ============================================================ */
 ROUTES.push('toolbox');
-S.tb = { busy: false, result: null, cardJson: null, msgs: [], started: false };
+S.tb = { busy: false, result: null, cardJson: null, msgs: [], started: false, startedAt: 0, tickTimer: null };
+
+/* 生成进度：随等待时间推进的阶段提示（纯前端模拟，消除「像卡住」的观感） */
+const TB_STAGES = ['提交请求', '模型阅读与组织', '生成内容与卡片'];
+function tbStageIdx(sec) { return sec < 3 ? 0 : sec < 10 ? 1 : 2; }
+function tbStepsHTML(sec) {
+  const idx = tbStageIdx(sec);
+  return TB_STAGES.map((s, i) =>
+    '<span class="step ' + (i < idx ? 'done' : i === idx ? 'cur' : '') + '">' +
+    (i < idx ? ic('check') : i === idx ? ic('loader') : '<i class="step-dot"></i>') + s + '</span>'
+  ).join('');
+}
+function tbProgressHTML(chat) {
+  const sec = Math.floor((Date.now() - S.tb.startedAt) / 1000);
+  const hint = chat ? '复杂回答可能需要 1 分钟' : '通常 10~60 秒 · 完成后可一键存为知识卡片';
+  return '<p class="hint-line">已等待 <b id="tbElapsed">' + sec + '</b> 秒 · ' + hint + ' · 生成中请勿关闭页面</p>';
+}
+function tbStartTick() {
+  S.tb.startedAt = Date.now();
+  if (S.tb.tickTimer) clearInterval(S.tb.tickTimer);
+  S.tb.tickTimer = setInterval(() => {
+    if (!S.tb.busy) { clearInterval(S.tb.tickTimer); S.tb.tickTimer = null; return; }
+    const sec = Math.floor((Date.now() - S.tb.startedAt) / 1000);
+    const stepsEl = document.querySelector('#tbProgressSteps');
+    if (stepsEl) stepsEl.innerHTML = tbStepsHTML(sec);
+    const el = document.querySelector('#tbElapsed');
+    if (el) el.textContent = String(sec);
+  }, 1000);
+}
+function tbStopTick() {
+  if (S.tb.tickTimer) { clearInterval(S.tb.tickTimer); S.tb.tickTimer = null; }
+}
 
 const TB_INTRO = '<p class="v-reason">丢进来的内容要「读懂」，这里的问题要「问透」。选择一个方法，填空或对话，产出可存为知识卡片进入复习。</p>' +
   '<p class="hint-line tb-src">方法整理自 <a href="https://mp.weixin.qq.com/s/NAdhdFrUq9-BKelqzqpwBQ" target="_blank" rel="noopener">数字生命卡兹克的公开分享</a> · 横纵分析与事实核查为离线适配版（不联网）· 每小时 40 次</p>';
@@ -1471,6 +1502,9 @@ function renderToolboxTool(tool) {
       (S.tb.cardJson ? '<p class="hint-line">已解析出卡片要点，保存后进入今日复习队列。</p>' : '') +
     '</div>'
     : '';
+  const progress = S.tb.busy
+    ? '<div class="tb-progress reveal" id="tbProgress"><div class="steps" id="tbProgressSteps">' + tbStepsHTML(Math.floor((Date.now() - S.tb.startedAt) / 1000)) + '</div>' + tbProgressHTML(false) + '</div>'
+    : '';
   return shell(tool.name,
     '<div class="toolbox"><div class="tb-intro reveal">' +
       '<button class="btn sm ghost back" data-act="tbBack">' + ic('arrowl') + '工具箱</button>' +
@@ -1480,7 +1514,7 @@ function renderToolboxTool(tool) {
     '</div>' +
     '<div class="tb-form reveal">' + fields +
       '<div class="row-actions"><button class="btn primary" data-act="tbSubmit"' + (S.tb.busy ? ' disabled' : '') + '>' + (S.tb.busy ? ic('loader') : ic('spark')) + (S.tb.busy ? '生成中…' : '生成') + '</button></div>' +
-    '</div>' + result + '</div>');
+    '</div>' + progress + result + '</div>');
 }
 
 function renderToolboxChat(tool) {
@@ -1498,7 +1532,7 @@ function renderToolboxChat(tool) {
     '</div>';
   const chatBlock = S.tb.started ?
     '<div class="tb-chat reveal" id="tbChat">' + (msgs || '') +
-      (S.tb.busy ? '<div class="tb-msg ai"><span class="who">AI</span><div class="bubble"><span class="think-dots"><i></i><i></i><i></i></span></div></div>' : '') +
+      (S.tb.busy ? '<div class="tb-msg ai"><span class="who">AI</span><div class="bubble"><span class="think-dots"><i></i><i></i><i></i></span>' + tbProgressHTML(true) + '</div></div>' : '') +
     '</div>' +
     '<div class="tb-form reveal">' +
       '<textarea id="tbInput" class="input" rows="3" placeholder="输入你的回答…（Ctrl+Enter 发送）"' + (S.tb.busy ? ' disabled' : '') + '></textarea>' +
@@ -1536,16 +1570,21 @@ async function tbSubmitFlow(tool, el) {
   const values = tbCollectValues(tool);
   if (!values) return;
   if (el) { el.disabled = true; el.classList.add('busy'); }
-  S.tb.busy = true; render();
+  S.tb.busy = true;
+  tbStartTick();
+  render();
   try {
     const r = await api.toolboxRun(tool.id, values, [], '');
     S.tb.busy = false;
+    tbStopTick();
     S.tb.result = r.content;
     S.tb.cardJson = tbExtractCardJson(r.content);
     render();
     toast('已生成', true);
   } catch (e) {
-    S.tb.busy = false; render();
+    S.tb.busy = false;
+    tbStopTick();
+    render();
     toast('生成失败：' + (e && e.message ? e.message : '未知错误'), false);
   }
 }
@@ -1553,6 +1592,7 @@ async function tbChatFlow(tool, input, el) {
   const history = S.tb.msgs.map(m => ({ role: m.role, content: m.content }));
   if (el) { el.disabled = true; el.classList.add('busy'); }
   S.tb.busy = true;
+  tbStartTick();
   if (input) S.tb.msgs.push({ role: 'user', content: input });
   render();
   const box = document.querySelector('#tbChat');
@@ -1560,6 +1600,7 @@ async function tbChatFlow(tool, input, el) {
   try {
     const r = await api.toolboxRun(tool.id, S.tb.values, history, input);
     S.tb.busy = false;
+    tbStopTick();
     /* 首轮（无 input）：把服务端实际发送的 turn 补进对话，保证后续历史完整 */
     if (!input && r.turn) S.tb.msgs.push({ role: 'user', content: r.turn });
     S.tb.msgs.push({ role: 'assistant', content: r.content });
@@ -1568,6 +1609,7 @@ async function tbChatFlow(tool, input, el) {
     if (b2) b2.scrollTop = b2.scrollHeight;
   } catch (e) {
     S.tb.busy = false;
+    tbStopTick();
     if (input) S.tb.msgs.pop();      // 失败不留下没有回应的用户消息，可重发
     render();
     toast('对话失败：' + (e && e.message ? e.message : '未知错误'), false);
@@ -1596,6 +1638,7 @@ function tbSaveCardFlow() {
 function tbReset() {
   S.tb.busy = false; S.tb.result = null; S.tb.cardJson = null;
   S.tb.msgs = []; S.tb.started = false; S.tb.values = {};
+  tbStopTick();
 }
 
 /* ---------------- 报告页深挖（双层解释 / 反向拆解 → 复习卡片） ---------------- */

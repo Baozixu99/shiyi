@@ -1069,3 +1069,9 @@ body::after{
 .tb-td{flex:1 1 0;min-width:90px;padding:7px 10px;font-size:12.5px;line-height:1.6;color:var(--text-sub);border-right:1px solid var(--border-soft);word-break:break-word}
 .tb-td:last-child{border-right:none}
 .tb-tr:first-child .tb-td{color:var(--text)}
+/* 工具箱生成进度区（v1.7.3）：阶段步进 + 已等待秒数 */
+.tb-progress{background:var(--surface);border:1px solid rgba(232,172,69,.28);border-radius:var(--r-lg);padding:16px 20px;margin-top:14px}
+.tb-progress .steps{margin-bottom:6px}
+.tb-progress .hint-line{margin-top:2px}
+.tb-progress b{color:var(--accent-strong);font-family:var(--font-mono)}
+.tb-msg .bubble .tb-progress{margin:10px 0 0;padding:10px 12px}
